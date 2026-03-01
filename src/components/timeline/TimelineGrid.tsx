@@ -196,7 +196,7 @@ const SortableRow: React.FC<SortableRowProps> = ({ task, depth, hasChildren, onE
   return (
     <div
       ref={setNodeRef}
-      className="flex"
+      className="flex border-b border-slate-200 dark:border-slate-700"
       style={{
         height: ROW_HEIGHT,
         transform: CSS.Transform.toString(transform),
