@@ -248,7 +248,7 @@ const HourContent: React.FC<HourContentProps> = ({
           <div
             key={slot.index}
             className={`shrink-0 border-r h-full cursor-crosshair ${
-              isHourBoundary ? 'border-slate-300 dark:border-slate-600' : 'border-slate-100 dark:border-slate-800'
+              isHourBoundary ? 'border-slate-200 dark:border-slate-700' : 'border-slate-100/50 dark:border-slate-800/40'
             } ${isSelected ? 'bg-blue-100 dark:bg-blue-900/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
             style={{ width: slotWidth }}
             onMouseDown={(e) => { e.preventDefault(); onSlotMouseDown(task.id, dayISO, slot.index); }}
@@ -457,7 +457,7 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
             return (
             <div
               key={slot.index}
-              className={`relative shrink-0 border-r ${isHourBoundary ? 'border-slate-300 dark:border-slate-600' : 'border-slate-100 dark:border-slate-800'}`}
+              className={`relative shrink-0 border-r ${isHourBoundary ? 'border-slate-200 dark:border-slate-700' : 'border-slate-100/50 dark:border-slate-800/40'}`}
               style={{ width: slotWidth, height: HEADER_HEIGHT }}
             >
               {i % labelInterval === 0 && (
