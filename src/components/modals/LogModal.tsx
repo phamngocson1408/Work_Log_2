@@ -136,14 +136,19 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
     const task = tasks.find((t) => t.id === taskId);
     if (task?.parentId) {
       const parentTaskId = task.parentId;
-      // Use latest store state (after optimistic update above)
-      const latestLogs = useTimeLogStore.getState().logs;
+
+      // Build "current" log list from the render-time closure + the just-saved subtask log.
+      // This avoids depending on getState() which may not reflect the optimistic update yet.
+      const savedLog = { id: config.log?.id ?? '__new__', taskId, startTime: startFull, endTime: endFull, content };
+      const currentLogs = isEditing && config.log
+        ? logs.map((l) => (l.id === config.log!.id ? savedLog : l))
+        : [...logs, savedLog];
 
       // All sibling subtask IDs under the same parent
       const siblingIds = new Set(tasks.filter((t) => t.parentId === parentTaskId).map((t) => t.id));
 
       // Find all sibling logs overlapping with the saved subtask's time (inclusive boundaries)
-      const siblingLogs = latestLogs.filter((l) => {
+      const siblingLogs = currentLogs.filter((l) => {
         if (!siblingIds.has(l.taskId)) return false;
         return areIntervalsOverlapping(
           { start: parseISO(startFull), end: parseISO(endFull) },
@@ -152,22 +157,25 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
         );
       });
 
-      // Parent start = earliest start, parent end = latest end among all sibling logs in this cluster
+      if (siblingLogs.length === 0) { onClose(); return; }
+
+      // Parent start = earliest, end = latest among the cluster
       const clusterStart = min(siblingLogs.map((l) => parseISO(l.startTime)));
       const clusterEnd   = max(siblingLogs.map((l) => parseISO(l.endTime)));
 
       const pStart = format(clusterStart, "yyyy-MM-dd'T'HH:mm:ss");
       const pEnd   = format(clusterEnd,   "yyyy-MM-dd'T'HH:mm:ss");
 
-      // Find parent log that overlaps with the cluster range
-      const parentLogs = latestLogs.filter((l) => l.taskId === parentTaskId);
-      const overlapping = parentLogs.find((pl) =>
-        areIntervalsOverlapping(
-          { start: parseISO(pl.startTime), end: parseISO(pl.endTime) },
-          { start: clusterStart, end: clusterEnd },
-          { inclusive: true }
-        )
-      );
+      // Find existing parent log overlapping with the cluster range
+      const overlapping = currentLogs
+        .filter((l) => l.taskId === parentTaskId)
+        .find((pl) =>
+          areIntervalsOverlapping(
+            { start: parseISO(pl.startTime), end: parseISO(pl.endTime) },
+            { start: clusterStart, end: clusterEnd },
+            { inclusive: true }
+          )
+        );
 
       // Aggregate notes from sibling logs that have content
       const aggregatedContent = siblingLogs
