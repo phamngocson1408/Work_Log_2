@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { format, parseISO, addMinutes, areIntervalsOverlapping } from 'date-fns';
+import { format, parseISO, addMinutes, areIntervalsOverlapping, min, max } from 'date-fns';
 import { useTimeLogStore } from '../../store/timeLogStore';
 import { useTaskStore } from '../../store/taskStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -130,6 +130,56 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
       });
     } else {
       addLog({ taskId, startTime: startFull, endTime: endFull, content });
+    }
+
+    // ── Auto-sync parent task log ──────────────────────────────────────────
+    const task = tasks.find((t) => t.id === taskId);
+    if (task?.parentId) {
+      const parentTaskId = task.parentId;
+      // Use latest store state (after optimistic update above)
+      const latestLogs = useTimeLogStore.getState().logs;
+
+      // Find parent log overlapping with this subtask's time range
+      const parentLogs = latestLogs.filter((l) => l.taskId === parentTaskId);
+      const overlapping = parentLogs.find((pl) =>
+        areIntervalsOverlapping(
+          { start: parseISO(pl.startTime), end: parseISO(pl.endTime) },
+          { start: parseISO(startFull), end: parseISO(endFull) }
+        )
+      );
+
+      // New parent time range: expand to include the subtask log
+      const pStart = format(
+        min([parseISO(overlapping?.startTime ?? startFull), parseISO(startFull)]),
+        "yyyy-MM-dd'T'HH:mm:ss"
+      );
+      const pEnd = format(
+        max([parseISO(overlapping?.endTime ?? endFull), parseISO(endFull)]),
+        "yyyy-MM-dd'T'HH:mm:ss"
+      );
+
+      // Aggregate notes from all subtask logs overlapping with new parent range
+      const siblingIds = new Set(tasks.filter((t) => t.parentId === parentTaskId).map((t) => t.id));
+      const overlappingSubtaskLogs = latestLogs.filter((l) => {
+        if (!siblingIds.has(l.taskId) || !l.content) return false;
+        return areIntervalsOverlapping(
+          { start: parseISO(pStart), end: parseISO(pEnd) },
+          { start: parseISO(l.startTime), end: parseISO(l.endTime) }
+        );
+      });
+
+      const aggregatedContent = overlappingSubtaskLogs
+        .map((l) => {
+          const subtask = tasks.find((t) => t.id === l.taskId);
+          return `<p><strong>${subtask?.title ?? ''}</strong></p>${l.content}`;
+        })
+        .join('<hr/>');
+
+      if (overlapping) {
+        updateLog(overlapping.id, { startTime: pStart, endTime: pEnd, content: aggregatedContent });
+      } else {
+        addLog({ taskId: parentTaskId, startTime: pStart, endTime: pEnd, content: aggregatedContent });
+      }
     }
 
     onClose();

@@ -17,6 +17,9 @@ import type { SlotDuration, SlotInfo } from '../types';
 /** Total minutes in a day */
 export const MINUTES_PER_DAY = 24 * 60;
 
+/** Extra minutes shown beyond midnight into the next day in hour view */
+export const OVERFLOW_MINUTES = 30;
+
 /** Pixel width per time slot */
 export const SLOT_WIDTH_30 = 36; // px for 30-min slots  → 1h = 72px
 export const SLOT_WIDTH_10 = 18; // px for 10-min slots  → 1h = 108px
@@ -25,9 +28,9 @@ export function getSlotWidth(slotDuration: SlotDuration): number {
   return slotDuration === 30 ? SLOT_WIDTH_30 : SLOT_WIDTH_10;
 }
 
-/** Generate all time slots for a single day */
+/** Generate all time slots for a single day including overflow into next day */
 export function generateDaySlots(slotDuration: SlotDuration): SlotInfo[] {
-  const totalSlots = MINUTES_PER_DAY / slotDuration;
+  const totalSlots = (MINUTES_PER_DAY + OVERFLOW_MINUTES) / slotDuration;
   const slots: SlotInfo[] = [];
   for (let i = 0; i < totalSlots; i++) {
     const startMinutes = i * slotDuration;
@@ -59,7 +62,7 @@ export function getLogBlockGeometry(
   slotDuration: SlotDuration
 ): { left: number; width: number } | null {
   const dayStart = startOfDay(dayDate);
-  const dayEnd = addMinutes(dayStart, MINUTES_PER_DAY);
+  const dayEnd = addMinutes(dayStart, MINUTES_PER_DAY + OVERFLOW_MINUTES);
 
   // Clamp to day bounds
   const clampedStart = logStart < dayStart ? dayStart : logStart;
@@ -77,9 +80,9 @@ export function getLogBlockGeometry(
   return { left, width };
 }
 
-/** Total pixel width for one full day */
+/** Total pixel width for one full day including overflow */
 export function getDayTotalWidth(slotDuration: SlotDuration): number {
-  const totalSlots = MINUTES_PER_DAY / slotDuration;
+  const totalSlots = (MINUTES_PER_DAY + OVERFLOW_MINUTES) / slotDuration;
   return totalSlots * getSlotWidth(slotDuration);
 }
 

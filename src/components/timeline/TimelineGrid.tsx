@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { parseISO, format, differenceInMinutes, startOfWeek } from 'date-fns';
+import { parseISO, format, differenceInMinutes, startOfWeek, addDays } from 'date-fns';
 import {
   DndContext,
   closestCenter,
@@ -31,6 +31,7 @@ import {
   getAllWeeks,
   getAllMonths,
   isWeekend,
+  OVERFLOW_MINUTES,
 } from '../../utils/timeUtils';
 import type { Task, TimeLog, SlotDuration } from '../../types';
 
@@ -360,6 +361,7 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
   const slots = generateDaySlots(slotDuration);
   const slotWidth = getSlotWidth(slotDuration);
   const dayDate = parseISO(currentDate);
+  const nextDayISO = format(addDays(dayDate, 1), 'yyyy-MM-dd');
   const dayTotalWidth = getDayTotalWidth(slotDuration);
   const labelInterval = slotDuration === 30 ? 2 : 3;
 
@@ -586,7 +588,16 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
           <SortableContext items={visibleTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
             {visibleTasks.map((task) => {
               const taskLogs = viewMode === 'hour'
-                ? logs.filter((l) => l.taskId === task.id && (l.startTime.startsWith(currentDate) || l.endTime.startsWith(currentDate)))
+                ? logs.filter((l) => {
+                    if (l.taskId !== task.id) return false;
+                    if (l.startTime.startsWith(currentDate) || l.endTime.startsWith(currentDate)) return true;
+                    // Include next-day logs that fall within the overflow window (first OVERFLOW_MINUTES)
+                    if (l.startTime.startsWith(nextDayISO)) {
+                      const [hh, mm] = l.startTime.substring(11, 16).split(':').map(Number);
+                      return hh * 60 + mm < OVERFLOW_MINUTES;
+                    }
+                    return false;
+                  })
                 : [];
 
               return (
