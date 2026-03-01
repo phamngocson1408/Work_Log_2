@@ -10,7 +10,7 @@ function loadFromStorage(): Task[] {
     if (!raw) return defaultTasks();
     // Migrate: ensure all tasks have a note field
     const tasks: Task[] = JSON.parse(raw);
-    return tasks.map((t) => ({ note: '', ...t }));
+    return tasks.map((t) => ({ ...t, note: t.note ?? '' }));
   } catch {
     return defaultTasks();
   }

@@ -4,6 +4,7 @@ import { useTimeLogStore } from '../../store/timeLogStore';
 import { useTaskStore } from '../../store/taskStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { slotIndexToDate } from '../../utils/timeUtils';
+import { RichTextEditor } from '../common/RichTextEditor';
 import type { TimeLog } from '../../types';
 
 export interface LogModalConfig {
@@ -247,13 +248,11 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
               <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
                 Notes
               </label>
-              <textarea
+              <RichTextEditor
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={setContent}
                 placeholder="What did you work on?"
-                rows={3}
-                autoFocus={!isEditing}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                minHeight={80}
               />
             </div>
 

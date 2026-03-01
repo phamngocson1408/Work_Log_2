@@ -43,10 +43,13 @@ interface SettingsState extends Settings {
   setCurrentDate: (date: string) => void;
   goToToday: () => void;
   toggleDarkMode: () => void;
+  /** Increments every time goToToday() is called so scroll effects re-run even if currentDate didn't change */
+  todayScrollTrigger: number;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
   ..._initial,
+  todayScrollTrigger: 0,
 
   setSlotDuration: (slotDuration) =>
     set((s) => { const n = { ...s, slotDuration }; saveToStorage(n); return n; }),
@@ -59,7 +62,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
   goToToday: () => {
     const today = format(new Date(), 'yyyy-MM-dd');
-    set((s) => { const n = { ...s, currentDate: today }; saveToStorage(n); return n; });
+    set((s) => {
+      const n = { ...s, currentDate: today, todayScrollTrigger: s.todayScrollTrigger + 1 };
+      saveToStorage(n);
+      return n;
+    });
   },
 
   toggleDarkMode: () =>

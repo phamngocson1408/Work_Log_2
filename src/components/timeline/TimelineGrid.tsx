@@ -240,13 +240,15 @@ const HourContent: React.FC<HourContentProps> = ({
   return (
     <div className="relative border-b border-slate-200 dark:border-slate-700 flex shrink-0" style={{ width: totalWidth, height: ROW_HEIGHT }}>
       {slots.map((slot) => {
-        const isHour = slot.startMinutes % 60 === 0;
+        // Dark border at the RIGHT edge of the slot that ends on an exact hour
+        // e.g. for 30min: slot at 07:30 → right edge = 08:00 ✓
+        const isHourBoundary = (slot.startMinutes + slotDuration) % 60 === 0;
         const isSelected = getSelectionForCell(task.id, dayISO, slot.index);
         return (
           <div
             key={slot.index}
             className={`shrink-0 border-r h-full cursor-crosshair ${
-              isHour ? 'border-slate-200 dark:border-slate-700' : 'border-slate-100 dark:border-slate-800'
+              isHourBoundary ? 'border-slate-300 dark:border-slate-600' : 'border-slate-100 dark:border-slate-800'
             } ${isSelected ? 'bg-blue-100 dark:bg-blue-900/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
             style={{ width: slotWidth }}
             onMouseDown={(e) => { e.preventDefault(); onSlotMouseDown(task.id, dayISO, slot.index); }}
@@ -278,7 +280,7 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
   onOpenLogModal, onEditLog, onEditTask, onAddSubtask,
 }) => {
   const { tasks, getFlatList, reorderTasks } = useTaskStore();
-  const { slotDuration, viewMode, currentDate, setCurrentDate, setViewMode } = useSettingsStore();
+  const { slotDuration, viewMode, currentDate, setCurrentDate, setViewMode, todayScrollTrigger } = useSettingsStore();
   const logs = useTimeLogStore((s) => s.logs);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -390,7 +392,7 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
         el.scrollLeft = Math.max(0, idx * MONTH_VIEW_COL_W - el.clientWidth / 2 + MONTH_VIEW_COL_W / 2);
       }
     }
-  }, [viewMode, currentDate, allDays, allWeeks, allMonths, slotDuration, slotWidth, todayISO]);
+  }, [viewMode, currentDate, todayScrollTrigger, allDays, allWeeks, allMonths, slotDuration, slotWidth, todayISO]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const getDepth = useCallback((task: Task): number => {
@@ -450,10 +452,12 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
           </div>
 
           {/* ── Hour view: time labels ── */}
-          {viewMode === 'hour' && slots.map((slot, i) => (
+          {viewMode === 'hour' && slots.map((slot, i) => {
+            const isHourBoundary = (slot.startMinutes + slotDuration) % 60 === 0;
+            return (
             <div
               key={slot.index}
-              className="relative shrink-0 border-r border-slate-100 dark:border-slate-800"
+              className={`relative shrink-0 border-r ${isHourBoundary ? 'border-slate-300 dark:border-slate-600' : 'border-slate-100 dark:border-slate-800'}`}
               style={{ width: slotWidth, height: HEADER_HEIGHT }}
             >
               {i % labelInterval === 0 && (
@@ -465,7 +469,8 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                 </span>
               )}
             </div>
-          ))}
+            );
+          })}
 
           {/* ── Day view: day columns ── */}
           {viewMode === 'day' && allDays.map((day) => {

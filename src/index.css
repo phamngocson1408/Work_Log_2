@@ -86,3 +86,60 @@
 .task-row:hover .task-name-cell {
   background: #f8fafc;
 }
+
+/* ── TipTap rich editor content styles ────────────────────────────────────── */
+.rich-editor p { margin: 0 0 0.35em 0; }
+.rich-editor p:last-child { margin-bottom: 0; }
+.rich-editor strong { font-weight: 600; }
+.rich-editor em { font-style: italic; }
+.rich-editor s { text-decoration: line-through; }
+.rich-editor code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+  background: #f1f5f9;
+  border-radius: 3px;
+  padding: 0.1em 0.3em;
+}
+.dark .rich-editor code { background: #334155; }
+.rich-editor ul { list-style: disc; padding-left: 1.25em; margin: 0.25em 0; }
+.rich-editor ol { list-style: decimal; padding-left: 1.25em; margin: 0.25em 0; }
+.rich-editor li { margin: 0.1em 0; }
+.rich-editor blockquote {
+  border-left: 3px solid #cbd5e1;
+  padding-left: 0.75em;
+  margin: 0.35em 0;
+  color: #64748b;
+}
+.dark .rich-editor blockquote { border-color: #475569; color: #94a3b8; }
+
+/* Placeholder */
+.rich-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #94a3b8;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Rich content rendered in tooltips */
+.rich-content p { margin: 0 0 0.25em 0; }
+.rich-content p:last-child { margin-bottom: 0; }
+.rich-content strong { font-weight: 600; }
+.rich-content em { font-style: italic; }
+.rich-content s { text-decoration: line-through; }
+.rich-content code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+  background: rgba(255,255,255,0.15);
+  border-radius: 3px;
+  padding: 0.1em 0.3em;
+}
+.rich-content ul { list-style: disc; padding-left: 1.1em; margin: 0.2em 0; }
+.rich-content ol { list-style: decimal; padding-left: 1.1em; margin: 0.2em 0; }
+.rich-content li { margin: 0; }
+.rich-content blockquote {
+  border-left: 2px solid rgba(255,255,255,0.4);
+  padding-left: 0.5em;
+  margin: 0.2em 0;
+  opacity: 0.8;
+}

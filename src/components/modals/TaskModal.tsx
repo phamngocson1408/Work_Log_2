@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ColorPicker } from '../common/ColorPicker';
+import { RichTextEditor } from '../common/RichTextEditor';
 import { useTaskStore } from '../../store/taskStore';
 import type { Task } from '../../types';
 
@@ -131,12 +132,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
                 Note
               </label>
-              <textarea
+              <RichTextEditor
                 value={note}
-                onChange={(e) => setNote(e.target.value)}
+                onChange={setNote}
                 placeholder="Add notes, links, or context…"
-                rows={3}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                minHeight={80}
               />
             </div>
           )}
