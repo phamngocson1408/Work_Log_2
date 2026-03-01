@@ -1,4 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { parseISO, format } from 'date-fns';
 import {
   DndContext,
@@ -56,6 +57,16 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
 }) => {
   const { toggleExpanded, deleteTask, updateTask } = useTaskStore();
   const [showMenu, setShowMenu] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
+
+  const handleMenuToggle = () => {
+    if (!showMenu && menuBtnRef.current) {
+      const rect = menuBtnRef.current.getBoundingClientRect();
+      setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+    setShowMenu((s) => !s);
+  };
 
   const cycleStatus = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -130,28 +141,35 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
         )}
       </button>
 
-      {/* Context menu */}
-      <div className="relative shrink-0">
+      {/* Context menu trigger */}
+      <div className="shrink-0">
         <button
-          onClick={() => setShowMenu((s) => !s)}
+          ref={menuBtnRef}
+          onClick={handleMenuToggle}
           className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
         >
           <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
             <path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z" />
           </svg>
         </button>
-        {showMenu && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-            <div className="absolute right-0 top-5 z-50 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 py-1 w-40">
-              <button onClick={() => { onEdit(task); setShowMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Edit</button>
-              <button onClick={() => { onAddSubtask(task.id); setShowMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Add Subtask</button>
-              <div className="h-px bg-slate-100 dark:bg-slate-700 my-1" />
-              <button onClick={() => { if (confirm(`Delete "${task.title}"?`)) deleteTask(task.id); setShowMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">Delete</button>
-            </div>
-          </>
-        )}
       </div>
+
+      {/* Context menu — rendered as portal to escape sticky stacking context */}
+      {showMenu && ReactDOM.createPortal(
+        <>
+          <div className="fixed inset-0 z-[200]" onClick={() => setShowMenu(false)} />
+          <div
+            className="fixed z-[201] bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 w-40"
+            style={{ top: menuPos.top, right: menuPos.right }}
+          >
+            <button onClick={() => { onEdit(task); setShowMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Edit</button>
+            <button onClick={() => { onAddSubtask(task.id); setShowMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Add Subtask</button>
+            <div className="h-px bg-slate-100 dark:bg-slate-700 my-1" />
+            <button onClick={() => { if (confirm(`Delete "${task.title}"?`)) deleteTask(task.id); setShowMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">Delete</button>
+          </div>
+        </>,
+        document.body
+      )}
     </div>
   );
 };
