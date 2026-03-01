@@ -25,6 +25,14 @@ function saveToStorage(s: Settings) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
 }
 
+function applyDarkClass(dark: boolean) {
+  document.documentElement.classList.toggle('dark', dark);
+}
+
+// Apply synchronously before React renders, so there's no flash
+const _initial = loadFromStorage();
+applyDarkClass(_initial.darkMode);
+
 interface SettingsState extends Settings {
   setSlotDuration: (d: SlotDuration) => void;
   setViewMode: (m: ViewMode) => void;
@@ -34,7 +42,7 @@ interface SettingsState extends Settings {
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
-  ...loadFromStorage(),
+  ..._initial,
 
   setSlotDuration: (slotDuration) =>
     set((s) => { const n = { ...s, slotDuration }; saveToStorage(n); return n; }),
@@ -51,5 +59,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   },
 
   toggleDarkMode: () =>
-    set((s) => { const n = { ...s, darkMode: !s.darkMode }; saveToStorage(n); return n; }),
+    set((s) => {
+      const darkMode = !s.darkMode;
+      applyDarkClass(darkMode);           // apply synchronously — no React effect needed
+      const n = { ...s, darkMode };
+      saveToStorage(n);
+      return n;
+    }),
 }));
