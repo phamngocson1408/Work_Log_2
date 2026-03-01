@@ -44,25 +44,25 @@ export const DateNavigator: React.FC = () => {
     <div className="flex items-center gap-2">
       <button
         onClick={() => navigate(-1)}
-        className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 transition-colors"
+        className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 transition-colors"
       >
         <ChevronLeft />
       </button>
 
-      <span className="text-sm font-medium text-slate-700 min-w-[180px] text-center">
+      <span className="text-sm font-medium text-slate-700 dark:text-slate-200 min-w-[180px] text-center">
         {displayLabel()}
       </span>
 
       <button
         onClick={() => navigate(1)}
-        className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 transition-colors"
+        className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 transition-colors"
       >
         <ChevronRight />
       </button>
 
       <button
         onClick={goToToday}
-        className="ml-1 px-3 py-1 text-xs font-medium rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+        className="ml-1 px-3 py-1 text-xs font-medium rounded-md bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 transition-colors"
       >
         Today
       </button>

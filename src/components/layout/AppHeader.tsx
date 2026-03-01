@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ViewSwitcher } from '../common/ViewSwitcher';
 import { DateNavigator } from '../common/DateNavigator';
 import { SettingsPanel } from '../settings/SettingsPanel';
+import { useSettingsStore } from '../../store/settingsStore';
 
 interface AppHeaderProps {
   onAddTask: () => void;
@@ -9,9 +10,10 @@ interface AppHeaderProps {
 
 export const AppHeader: React.FC<AppHeaderProps> = ({ onAddTask }) => {
   const [showSettings, setShowSettings] = useState(false);
+  const { darkMode, toggleDarkMode } = useSettingsStore();
 
   return (
-    <header className="relative flex items-center justify-between px-4 py-2 bg-white border-b border-slate-200 shrink-0">
+    <header className="relative flex items-center justify-between px-4 py-2 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shrink-0">
       {/* Left: logo */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
@@ -21,18 +23,18 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onAddTask }) => {
                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </div>
-          <span className="font-semibold text-slate-800 text-sm">WorkLog</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-100 text-sm">WorkLog</span>
         </div>
       </div>
 
       {/* Center: date nav + view switcher */}
       <div className="flex items-center gap-4">
         <DateNavigator />
-        <div className="w-px h-5 bg-slate-200" />
+        <div className="w-px h-5 bg-slate-200 dark:bg-slate-600" />
         <ViewSwitcher />
       </div>
 
-      {/* Right: add task + settings */}
+      {/* Right: add task + dark mode + settings */}
       <div className="flex items-center gap-2">
         <button
           onClick={onAddTask}
@@ -44,10 +46,33 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onAddTask }) => {
           Add Task
         </button>
 
+        {/* Dark mode toggle */}
+        <button
+          onClick={toggleDarkMode}
+          className="p-2 rounded-lg transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"
+          title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {darkMode ? (
+            /* Sun icon */
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+            </svg>
+          ) : (
+            /* Moon icon */
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+          )}
+        </button>
+
         <button
           onClick={() => setShowSettings((s) => !s)}
           className={`p-2 rounded-lg transition-colors ${
-            showSettings ? 'bg-slate-100 text-slate-700' : 'hover:bg-slate-100 text-slate-500'
+            showSettings
+              ? 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'
+              : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400'
           }`}
           title="Settings"
         >

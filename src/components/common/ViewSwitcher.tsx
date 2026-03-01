@@ -12,15 +12,15 @@ export const ViewSwitcher: React.FC = () => {
   const { viewMode, setViewMode } = useSettingsStore();
 
   return (
-    <div className="flex bg-slate-100 rounded-lg p-1 gap-1">
+    <div className="flex bg-slate-100 dark:bg-slate-700 rounded-lg p-1 gap-1">
       {MODES.map((mode) => (
         <button
           key={mode.value}
           onClick={() => setViewMode(mode.value)}
           className={`px-3 py-1 rounded-md text-sm font-medium transition-all ${
             viewMode === mode.value
-              ? 'bg-white text-slate-900 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
+              ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
           }`}
         >
           {mode.label}

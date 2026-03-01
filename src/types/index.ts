@@ -24,6 +24,7 @@ export interface Settings {
   slotDuration: SlotDuration;
   viewMode: ViewMode;
   currentDate: string; // ISO date string YYYY-MM-DD
+  darkMode: boolean;
 }
 
 // Derived/computed types used in rendering

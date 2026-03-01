@@ -66,12 +66,12 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
 
   return (
     <div
-      className="sticky left-0 z-10 bg-white border-r border-b border-slate-200 flex items-center gap-1 group shrink-0 select-none"
+      className="sticky left-0 z-10 bg-white dark:bg-slate-900 border-r border-b border-slate-200 dark:border-slate-700 flex items-center gap-1 group shrink-0 select-none"
       style={{ width: SIDEBAR_WIDTH, minWidth: SIDEBAR_WIDTH, height: ROW_HEIGHT, paddingLeft: depth * 16 + 4 }}
     >
       {/* Drag handle */}
       <button
-        className="opacity-0 group-hover:opacity-40 hover:!opacity-70 cursor-grab text-slate-400 p-0.5 shrink-0"
+        className="opacity-0 group-hover:opacity-40 hover:!opacity-70 cursor-grab text-slate-400 dark:text-slate-500 p-0.5 shrink-0"
         {...dragHandleProps}
       >
         <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
@@ -83,7 +83,7 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
       {hasChildren ? (
         <button
           onClick={() => toggleExpanded(task.id)}
-          className="shrink-0 w-4 h-4 flex items-center justify-center text-slate-400 hover:text-slate-600"
+          className="shrink-0 w-4 h-4 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
           style={{ transform: task.isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}
         >
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -99,7 +99,7 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
 
       {/* Title */}
       <span
-        className={`flex-1 text-sm truncate ${task.status === 'completed' ? 'line-through text-slate-400' : 'text-slate-700'}`}
+        className={`flex-1 text-sm truncate ${task.status === 'completed' ? 'line-through text-slate-400 dark:text-slate-600' : 'text-slate-700 dark:text-slate-300'}`}
         title={task.title}
       >
         {task.title}
@@ -133,7 +133,7 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
       <div className="relative shrink-0">
         <button
           onClick={() => setShowMenu((s) => !s)}
-          className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
+          className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
         >
           <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
             <path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z" />
@@ -142,11 +142,11 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
         {showMenu && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-            <div className="absolute right-0 top-5 z-50 bg-white rounded-lg shadow-lg border border-slate-200 py-1 w-40">
-              <button onClick={() => { onEdit(task); setShowMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Edit</button>
-              <button onClick={() => { onAddSubtask(task.id); setShowMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">Add Subtask</button>
-              <div className="h-px bg-slate-100 my-1" />
-              <button onClick={() => { if (confirm(`Delete "${task.title}"?`)) deleteTask(task.id); setShowMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50">Delete</button>
+            <div className="absolute right-0 top-5 z-50 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 py-1 w-40">
+              <button onClick={() => { onEdit(task); setShowMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Edit</button>
+              <button onClick={() => { onAddSubtask(task.id); setShowMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Add Subtask</button>
+              <div className="h-px bg-slate-100 dark:bg-slate-700 my-1" />
+              <button onClick={() => { if (confirm(`Delete "${task.title}"?`)) deleteTask(task.id); setShowMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">Delete</button>
             </div>
           </>
         )}
@@ -214,7 +214,7 @@ const DayContent: React.FC<DayContentProps> = ({
 }) => {
   const totalWidth = slots.length * slotWidth;
   return (
-    <div className="relative border-b border-slate-100 flex shrink-0" style={{ width: totalWidth, height: ROW_HEIGHT }}>
+    <div className="relative border-b border-slate-200 dark:border-slate-700 flex shrink-0" style={{ width: totalWidth, height: ROW_HEIGHT }}>
       {slots.map((slot) => {
         const isHour = slot.startMinutes % 60 === 0;
         const isSelected = getSelectionForCell(task.id, dayISO, slot.index);
@@ -222,8 +222,8 @@ const DayContent: React.FC<DayContentProps> = ({
           <div
             key={slot.index}
             className={`shrink-0 border-r h-full cursor-crosshair ${
-              isHour ? 'border-slate-200' : 'border-slate-100'
-            } ${isSelected ? 'bg-blue-100' : 'hover:bg-slate-50'}`}
+              isHour ? 'border-slate-200 dark:border-slate-700' : 'border-slate-100 dark:border-slate-800'
+            } ${isSelected ? 'bg-blue-100 dark:bg-blue-900/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
             style={{ width: slotWidth }}
             onMouseDown={(e) => { e.preventDefault(); onSlotMouseDown(task.id, dayISO, slot.index); }}
             onMouseEnter={() => onSlotMouseEnter(task.id, dayISO, slot.index)}
@@ -267,7 +267,7 @@ const SummaryContent: React.FC<SummaryContentProps> = ({ task, days, dayWidth, o
         return (
           <div
             key={dayISO}
-            className="relative shrink-0 border-r border-b border-slate-200 cursor-pointer hover:bg-slate-50"
+            className="relative shrink-0 border-r border-b border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"
             style={{ width: dayWidth, height: ROW_HEIGHT }}
             onClick={() => onDayClick(task.id, dayISO)}
             title={`${task.title} · ${dayISO}: ${Math.round(totalMinutes)}min`}
@@ -393,8 +393,8 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
   // ── Empty state ───────────────────────────────────────────────────────────
   if (visibleTasks.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3">
-        <svg className="w-12 h-12 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 gap-3">
+        <svg className="w-12 h-12 text-slate-200 dark:text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
             d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
@@ -414,15 +414,15 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
 
         {/* ── STICKY HEADER ROW ── */}
         <div
-          className="sticky top-0 z-20 flex bg-slate-50 border-b border-slate-200"
+          className="sticky top-0 z-20 flex bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700"
           style={{ height: HEADER_HEIGHT }}
         >
           {/* Corner — sticky left + top */}
           <div
-            className="sticky left-0 z-30 bg-slate-50 border-r border-slate-200 flex items-center px-3 shrink-0"
+            className="sticky left-0 z-30 bg-slate-50 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 flex items-center px-3 shrink-0"
             style={{ width: SIDEBAR_WIDTH, minWidth: SIDEBAR_WIDTH, height: HEADER_HEIGHT }}
           >
-            <span className="text-xs font-medium text-slate-400">Tasks</span>
+            <span className="text-xs font-medium text-slate-400 dark:text-slate-500">Tasks</span>
           </div>
 
           {/* Time labels (day view) */}
@@ -430,12 +430,12 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
             slots.map((slot, i) => (
               <div
                 key={slot.index}
-                className="relative shrink-0 border-r border-slate-100"
+                className="relative shrink-0 border-r border-slate-100 dark:border-slate-800"
                 style={{ width: slotWidth, height: HEADER_HEIGHT }}
               >
                 {i % labelInterval === 0 && (
                   <span
-                    className="absolute left-1 top-1/2 -translate-y-1/2 text-slate-400 whitespace-nowrap font-medium"
+                    className="absolute left-1 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 whitespace-nowrap font-medium"
                     style={{ fontSize: slotDuration === 10 ? '10px' : '11px' }}
                   >
                     {slot.label}
@@ -448,14 +448,14 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
             summaryDays.map((d) => (
               <div
                 key={format(d, 'yyyy-MM-dd')}
-                className="shrink-0 border-r border-slate-200 flex flex-col items-center justify-center"
+                className="shrink-0 border-r border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center"
                 style={{ width: DAY_COL_WIDTH, height: HEADER_HEIGHT }}
               >
-                <span className="text-xs font-semibold text-slate-700">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                   {viewMode === 'week' ? format(d, 'EEE d') : format(d, 'd')}
                 </span>
                 {viewMode === 'week' && (
-                  <span className="text-xs text-slate-400">{format(d, 'MMM')}</span>
+                  <span className="text-xs text-slate-400 dark:text-slate-500">{format(d, 'MMM')}</span>
                 )}
               </div>
             ))

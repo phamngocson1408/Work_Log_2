@@ -1,11 +1,17 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { AppHeader } from './components/layout/AppHeader';
 import { TimelineGrid } from './components/timeline/TimelineGrid';
 import { TaskModal } from './components/modals/TaskModal';
 import { LogModal, type LogModalConfig } from './components/modals/LogModal';
+import { useSettingsStore } from './store/settingsStore';
 import type { Task, TimeLog } from './types';
 
 export default function App() {
+  const { darkMode } = useSettingsStore();
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+  }, [darkMode]);
   // ── Task modal state ──────────────────────────────────────────────────────
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -56,7 +62,7 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
+    <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-900 overflow-hidden">
       <AppHeader onAddTask={handleAddTask} />
 
       <main className="flex-1 overflow-hidden flex flex-col">
