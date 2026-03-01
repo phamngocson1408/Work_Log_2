@@ -5,12 +5,20 @@ import { supabase } from '../lib/supabase';
 import type { TimeLog } from '../types';
 
 // ── DB row → App type ──────────────────────────────────────────────────────
+
+// Supabase returns timestamptz as "2026-03-01T09:00:00+00:00"
+// The app stores/uses "2026-03-01T09:00" (local wall-clock, no timezone)
+// Strip timezone offset and seconds to restore original format
+function normalizeTimestamp(t: string): string {
+  return t.replace(' ', 'T').substring(0, 16);
+}
+
 function rowToLog(row: Record<string, unknown>): TimeLog {
   return {
     id: row.id as string,
     taskId: row.task_id as string,
-    startTime: row.start_time as string,
-    endTime: row.end_time as string,
+    startTime: normalizeTimestamp(row.start_time as string),
+    endTime: normalizeTimestamp(row.end_time as string),
     content: (row.content as string) ?? '',
   };
 }
