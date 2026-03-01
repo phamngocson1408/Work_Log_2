@@ -20,16 +20,19 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const [title, setTitle] = useState('');
   const [color, setColor] = useState('#3B82F6');
   const [status, setStatus] = useState<Task['status']>('not_started');
+  const [note, setNote] = useState('');
 
   useEffect(() => {
     if (editTask) {
       setTitle(editTask.title);
       setColor(editTask.color);
       setStatus(editTask.status);
+      setNote(editTask.note ?? '');
     } else {
       setTitle('');
       setColor('#3B82F6');
       setStatus('not_started');
+      setNote('');
     }
   }, [editTask, isOpen]);
 
@@ -40,7 +43,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     if (!title.trim()) return;
 
     if (editTask) {
-      updateTask(editTask.id, { title: title.trim(), color, status });
+      updateTask(editTask.id, { title: title.trim(), color, status, note });
     } else {
       addTask(title.trim(), color, defaultParentId);
     }
@@ -119,6 +122,22 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Note (only when editing) */}
+          {editTask && (
+            <div>
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
+                Note
+              </label>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Add notes, links, or context…"
+                rows={3}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              />
             </div>
           )}
 

@@ -97,10 +97,11 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
       {/* Color dot */}
       <div className="shrink-0 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: task.color }} />
 
-      {/* Title */}
+      {/* Title — click to edit */}
       <span
-        className={`flex-1 text-sm truncate ${task.status === 'completed' ? 'line-through text-slate-400 dark:text-slate-600' : 'text-slate-700 dark:text-slate-300'}`}
-        title={task.title}
+        className={`flex-1 text-sm truncate cursor-pointer hover:underline underline-offset-2 ${task.status === 'completed' ? 'line-through text-slate-400 dark:text-slate-600' : 'text-slate-700 dark:text-slate-300'}`}
+        title={`${task.title}${task.note ? '\n' + task.note : ''}`}
+        onClick={(e) => { e.stopPropagation(); onEdit(task); }}
       >
         {task.title}
       </span>

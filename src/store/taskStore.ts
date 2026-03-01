@@ -7,7 +7,10 @@ const STORAGE_KEY = 'wtl_tasks';
 function loadFromStorage(): Task[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : defaultTasks();
+    if (!raw) return defaultTasks();
+    // Migrate: ensure all tasks have a note field
+    const tasks: Task[] = JSON.parse(raw);
+    return tasks.map((t) => ({ note: '', ...t }));
   } catch {
     return defaultTasks();
   }
@@ -27,6 +30,7 @@ function defaultTasks(): Task[] {
       parentId: null,
       orderIndex: 0,
       isExpanded: true,
+      note: '',
     },
   ];
 }
@@ -56,6 +60,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       parentId,
       orderIndex: maxIndex + 1,
       isExpanded: true,
+      note: '',
     };
     set((s) => {
       const updated = [...s.tasks, task];
