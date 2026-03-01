@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Prevent text selection during drag */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Timeline grid layout */
+.timeline-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.timeline-scroll-area {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+/* Sticky left column (task names) */
+.task-name-cell {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background: white;
+  border-right: 1px solid #e2e8f0;
+}
+
+/* Sticky top row (time header) */
+.time-header-row {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.time-header-corner {
+  position: sticky;
+  left: 0;
+  z-index: 30;
+  background: #f8fafc;
+}
+
+/* Log block transitions */
+.log-block {
+  transition: opacity 0.15s ease, box-shadow 0.15s ease;
+}
+
+.log-block:hover {
+  z-index: 50;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Task row hover */
+.task-row:hover .task-name-cell {
+  background: #f8fafc;
+}
