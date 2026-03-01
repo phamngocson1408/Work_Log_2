@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { parseISO, addMinutes, format } from 'date-fns';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { parseISO, addMinutes, format, areIntervalsOverlapping } from 'date-fns';
 import type { TimeLog, Task } from '../../types';
 import { formatTime, durationLabel, getSlotWidth } from '../../utils/timeUtils';
 import { useTimeLogStore } from '../../store/timeLogStore';
+import { useTaskStore } from '../../store/taskStore';
 import { useSettingsStore } from '../../store/settingsStore';
 
 interface TooltipState { x: number; y: number }
@@ -22,9 +23,28 @@ const ISO_FMT = "yyyy-MM-dd'T'HH:mm";
 export const LogBlock: React.FC<LogBlockProps> = ({
   log, task, left, width, rowHeight, onClick,
 }) => {
-  const { updateLog } = useTimeLogStore();
+  const { updateLog, logs } = useTimeLogStore();
+  const { tasks } = useTaskStore();
   const { slotDuration } = useSettingsStore();
   const slotW = getSlotWidth(slotDuration);
+
+  // ── Aggregate notes from overlapping subtask logs ──────────────────────────
+  const subtaskNotes = useMemo(() => {
+    const subtasks = tasks.filter((t) => t.parentId === task.id);
+    if (subtasks.length === 0) return [];
+    const subtaskIds = new Set(subtasks.map((t) => t.id));
+    const logStart = parseISO(log.startTime);
+    const logEnd = parseISO(log.endTime);
+    return logs
+      .filter((l) => {
+        if (!subtaskIds.has(l.taskId) || !l.content) return false;
+        return areIntervalsOverlapping(
+          { start: logStart, end: logEnd },
+          { start: parseISO(l.startTime), end: parseISO(l.endTime) }
+        );
+      })
+      .map((l) => ({ subtask: tasks.find((t) => t.id === l.taskId)!, content: l.content }));
+  }, [task.id, tasks, logs, log.startTime, log.endTime]);
 
   const blockRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
@@ -212,6 +232,25 @@ export const LogBlock: React.FC<LogBlockProps> = ({
                 className="rich-content text-slate-200 border-t border-slate-700 pt-1 mt-1 break-words"
                 dangerouslySetInnerHTML={{ __html: log.content }}
               />
+            )}
+            {subtaskNotes.length > 0 && (
+              <div className="border-t border-slate-700 pt-1.5 mt-1.5 space-y-1.5">
+                <div className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">
+                  Subtasks
+                </div>
+                {subtaskNotes.map(({ subtask, content }, i) => (
+                  <div key={i}>
+                    <div className="flex items-center gap-1 text-slate-300 font-medium mb-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: subtask.color }} />
+                      <span className="text-[11px]">{subtask.title}</span>
+                    </div>
+                    <div
+                      className="rich-content text-slate-300 pl-2.5 break-words"
+                      dangerouslySetInnerHTML={{ __html: content }}
+                    />
+                  </div>
+                ))}
+              </div>
             )}
             <div
               className="absolute left-1/2 -translate-x-1/2 bottom-0 translate-y-full w-0 h-0"

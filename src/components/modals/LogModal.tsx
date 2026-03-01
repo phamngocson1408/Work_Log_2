@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { format, parseISO, addMinutes } from 'date-fns';
+import React, { useState, useEffect, useMemo } from 'react';
+import { format, parseISO, addMinutes, areIntervalsOverlapping } from 'date-fns';
 import { useTimeLogStore } from '../../store/timeLogStore';
 import { useTaskStore } from '../../store/taskStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -23,7 +23,7 @@ interface LogModalProps {
 }
 
 export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
-  const { addLog, updateLog, deleteLog, findConflicts } = useTimeLogStore();
+  const { addLog, updateLog, deleteLog, findConflicts, logs } = useTimeLogStore();
   const { tasks } = useTaskStore();
   const { slotDuration } = useSettingsStore();
 
@@ -67,6 +67,26 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
     setConflictAction(null);
     setConflicts([]);
   }, [config, slotDuration]);
+
+  // ── Aggregate notes from overlapping subtask logs ─────────────────────────
+  const subtaskNotes = useMemo(() => {
+    if (!taskId || !startTime || !endTime) return [];
+    const subtasks = tasks.filter((t) => t.parentId === taskId);
+    if (subtasks.length === 0) return [];
+    const subtaskIds = new Set(subtasks.map((t) => t.id));
+    const rangeStart = parseISO(`${startTime}:00`);
+    const rangeEnd = parseISO(`${endTime}:00`);
+    if (rangeStart >= rangeEnd) return [];
+    return logs
+      .filter((l) => {
+        if (!subtaskIds.has(l.taskId) || !l.content) return false;
+        return areIntervalsOverlapping(
+          { start: rangeStart, end: rangeEnd },
+          { start: parseISO(l.startTime), end: parseISO(l.endTime) }
+        );
+      })
+      .map((l) => ({ subtask: tasks.find((t) => t.id === l.taskId)!, content: l.content }));
+  }, [taskId, startTime, endTime, tasks, logs]);
 
   if (!config) return null;
 
@@ -255,6 +275,34 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
                 minHeight={80}
               />
             </div>
+
+            {/* Aggregated subtask notes (read-only) */}
+            {subtaskNotes.length > 0 && (
+              <div>
+                <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
+                  From Subtasks
+                </label>
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700 bg-slate-50 dark:bg-slate-700/40">
+                  {subtaskNotes.map(({ subtask, content: sc }, i) => (
+                    <div key={i} className="px-3 py-2.5">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: subtask.color }}
+                        />
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                          {subtask.title}
+                        </span>
+                      </div>
+                      <div
+                        className="rich-content text-sm text-slate-600 dark:text-slate-300 pl-3.5"
+                        dangerouslySetInnerHTML={{ __html: sc }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex gap-3 pt-1">
