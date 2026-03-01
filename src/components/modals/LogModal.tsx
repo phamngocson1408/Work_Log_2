@@ -23,7 +23,7 @@ interface LogModalProps {
 }
 
 export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
-  const { addLog, updateLog, deleteLog, findConflicts, syncParentLog, logs } = useTimeLogStore();
+  const { addLog, updateLog, deleteLog, findConflicts, logs } = useTimeLogStore();
   const { tasks } = useTaskStore();
   const { slotDuration } = useSettingsStore();
 
@@ -130,17 +130,6 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
       });
     } else {
       addLog({ taskId, startTime: startFull, endTime: endFull, content });
-    }
-
-    // ── Auto-sync parent task log ──────────────────────────────────────────
-    // syncParentLog reads get().logs internally — always reflects the
-    // optimistic update applied above, so no stale-closure issues.
-    const task = tasks.find((t) => t.id === taskId);
-    if (task?.parentId) {
-      const savedLog = { id: config.log?.id ?? '__new__', taskId, startTime: startFull, endTime: endFull, content };
-      const siblingTaskIds = new Set(tasks.filter((t) => t.parentId === task.parentId).map((t) => t.id));
-      const taskNames = Object.fromEntries(tasks.map((t) => [t.id, t.title]));
-      syncParentLog(savedLog, task.parentId, siblingTaskIds, taskNames);
     }
 
     onClose();
