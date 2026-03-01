@@ -460,7 +460,7 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
         >
           {/* Corner — sticky left + top */}
           <div
-            className="sticky left-0 z-30 bg-slate-50 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 flex items-center px-3 shrink-0"
+            className="sticky left-0 z-30 bg-slate-50 dark:bg-slate-900 border-r border-b border-slate-200 dark:border-slate-700 flex items-center px-3 shrink-0"
             style={{ width: SIDEBAR_WIDTH, minWidth: SIDEBAR_WIDTH, height: HEADER_HEIGHT }}
           >
             <span className="text-xs font-medium text-slate-400 dark:text-slate-500">Tasks</span>
