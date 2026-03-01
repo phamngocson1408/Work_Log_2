@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { parseISO, format, differenceInMinutes, startOfWeek, addDays } from 'date-fns';
+import { parseISO, format, differenceInMinutes, startOfDay, startOfWeek, addDays } from 'date-fns';
 import {
   DndContext,
   closestCenter,
@@ -315,18 +315,31 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
     const byWeek: Record<string, Record<string, number>> = {};
     const byMonth: Record<string, Record<string, number>> = {};
     for (const log of logs) {
-      const startDate = parseISO(log.startTime);
-      const mins = differenceInMinutes(parseISO(log.endTime), startDate);
+      const logStart = parseISO(log.startTime);
+      const logEnd = parseISO(log.endTime);
       const { taskId } = log;
-      const dayKey = format(startDate, 'yyyy-MM-dd');
-      const weekKey = format(startOfWeek(startDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-      const monthKey = format(startDate, 'yyyy-MM');
-      if (!byDay[taskId]) byDay[taskId] = {};
-      byDay[taskId][dayKey] = (byDay[taskId][dayKey] || 0) + mins;
+
+      // Split across days so logs spanning midnight are counted per-day correctly
+      let dayCursor = startOfDay(logStart);
+      while (dayCursor < logEnd) {
+        const nextDay = addDays(dayCursor, 1);
+        const overlapStart = logStart > dayCursor ? logStart : dayCursor;
+        const overlapEnd = logEnd < nextDay ? logEnd : nextDay;
+        const dayMins = differenceInMinutes(overlapEnd, overlapStart);
+        const dayKey = format(dayCursor, 'yyyy-MM-dd');
+        if (!byDay[taskId]) byDay[taskId] = {};
+        byDay[taskId][dayKey] = (byDay[taskId][dayKey] || 0) + dayMins;
+        dayCursor = nextDay;
+      }
+
+      // Week / month totals attributed to start day (logs rarely span weeks)
+      const totalMins = differenceInMinutes(logEnd, logStart);
+      const weekKey = format(startOfWeek(logStart, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      const monthKey = format(logStart, 'yyyy-MM');
       if (!byWeek[taskId]) byWeek[taskId] = {};
-      byWeek[taskId][weekKey] = (byWeek[taskId][weekKey] || 0) + mins;
+      byWeek[taskId][weekKey] = (byWeek[taskId][weekKey] || 0) + totalMins;
       if (!byMonth[taskId]) byMonth[taskId] = {};
-      byMonth[taskId][monthKey] = (byMonth[taskId][monthKey] || 0) + mins;
+      byMonth[taskId][monthKey] = (byMonth[taskId][monthKey] || 0) + totalMins;
     }
     return { byDay, byWeek, byMonth };
   }, [logs]);
@@ -646,7 +659,7 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                             `}
                             style={{ width: DAY_VIEW_COL_W, height: ROW_HEIGHT }}
                             onClick={() => { setCurrentDate(dayISO); setViewMode('hour'); }}
-                            title={`${task.title} · ${format(day, 'EEE, MMM d')}: ${Math.round(mins)}min`}
+                            title={`${task.title} · ${format(day, 'EEE, MMM d')}: ${Math.round(mins / 60 * 10) / 10}h`}
                           >
                             {mins > 0 && (
                               <div
@@ -657,6 +670,14 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                                   opacity: task.status === 'completed' ? 0.4 : 0.85,
                                 }}
                               />
+                            )}
+                            {mins > 0 && (
+                              <span
+                                className="absolute inset-0 flex items-end justify-center pb-1 pointer-events-none text-white font-medium"
+                                style={{ fontSize: 9, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}
+                              >
+                                {mins < 60 ? `${Math.round(mins)}m` : `${Math.round(mins / 60)}h`}
+                              </span>
                             )}
                           </div>
                         );
