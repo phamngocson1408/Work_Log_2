@@ -6,7 +6,7 @@ const STORAGE_KEY = 'wtl_settings';
 
 const DEFAULTS: Settings = {
   slotDuration: 30,
-  viewMode: 'day',
+  viewMode: 'hour',
   currentDate: format(new Date(), 'yyyy-MM-dd'),
   darkMode: false,
 };
@@ -26,7 +26,11 @@ function saveToStorage(s: Settings) {
 }
 
 function applyDarkClass(dark: boolean) {
-  document.documentElement.classList.toggle('dark', dark);
+  if (dark) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
 }
 
 // Apply synchronously before React renders, so there's no flash

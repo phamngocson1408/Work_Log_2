@@ -1,5 +1,5 @@
 import React from 'react';
-import { addDays, addWeeks, addMonths, parseISO, format } from 'date-fns';
+import { addDays, addWeeks, addMonths, addYears, parseISO, format, startOfWeek } from 'date-fns';
 import { useSettingsStore } from '../../store/settingsStore';
 
 function ChevronLeft() {
@@ -24,20 +24,21 @@ export const DateNavigator: React.FC = () => {
 
   const navigate = (dir: 1 | -1) => {
     let next: Date;
-    if (viewMode === 'day') next = addDays(date, dir);
-    else if (viewMode === 'week') next = addWeeks(date, dir);
-    else next = addMonths(date, dir);
+    if (viewMode === 'hour') next = addDays(date, dir);
+    else if (viewMode === 'day') next = addMonths(date, dir);
+    else if (viewMode === 'week') next = addMonths(date, dir * 3);
+    else next = addYears(date, dir);
     setCurrentDate(format(next, 'yyyy-MM-dd'));
   };
 
   const displayLabel = () => {
-    if (viewMode === 'day') return format(date, 'EEEE, MMMM d, yyyy');
+    if (viewMode === 'hour') return format(date, 'EEEE, MMMM d, yyyy');
+    if (viewMode === 'day') return format(date, 'MMMM yyyy');
     if (viewMode === 'week') {
-      const start = format(date, 'MMM d');
-      const end = format(addDays(date, 6), 'MMM d, yyyy');
-      return `${start} – ${end}`;
+      const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+      return `W${format(weekStart, 'w')} · ${format(date, 'yyyy')}`;
     }
-    return format(date, 'MMMM yyyy');
+    return format(date, 'yyyy');
   };
 
   return (

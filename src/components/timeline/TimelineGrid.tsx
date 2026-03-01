@@ -1,6 +1,6 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { parseISO, format } from 'date-fns';
+import { parseISO, format, differenceInMinutes, startOfWeek } from 'date-fns';
 import {
   DndContext,
   closestCenter,
@@ -26,15 +26,20 @@ import {
   generateDaySlots,
   getSlotWidth,
   getLogBlockGeometry,
-  getWeekDays,
-  getMonthDays,
   getDayTotalWidth,
+  getAllDays,
+  getAllWeeks,
+  getAllMonths,
+  isWeekend,
 } from '../../utils/timeUtils';
 import type { Task, TimeLog, SlotDuration } from '../../types';
 
 const SIDEBAR_WIDTH = 280;
 const ROW_HEIGHT = 40;
 const HEADER_HEIGHT = 40;
+const DAY_VIEW_COL_W = 44;   // px per column in Day view
+const WEEK_VIEW_COL_W = 72;  // px per column in Week view
+const MONTH_VIEW_COL_W = 90; // px per column in Month view
 
 // ── Inline task name cell (sticky-left inside the single scroll container) ────
 
@@ -182,7 +187,7 @@ interface SortableRowProps {
   hasChildren: boolean;
   onEdit: (t: Task) => void;
   onAddSubtask: (pid: string) => void;
-  children: React.ReactNode; // the timeline content cell
+  children: React.ReactNode;
 }
 
 const SortableRow: React.FC<SortableRowProps> = ({ task, depth, hasChildren, onEdit, onAddSubtask, children }) => {
@@ -211,9 +216,9 @@ const SortableRow: React.FC<SortableRowProps> = ({ task, depth, hasChildren, onE
   );
 };
 
-// ── Day view time content (the scrollable part) ───────────────────────────────
+// ── Hour view: time-slot content ──────────────────────────────────────────────
 
-interface DayContentProps {
+interface HourContentProps {
   task: Task;
   dayDate: Date;
   dayISO: string;
@@ -227,7 +232,7 @@ interface DayContentProps {
   onLogClick: (log: TimeLog) => void;
 }
 
-const DayContent: React.FC<DayContentProps> = ({
+const HourContent: React.FC<HourContentProps> = ({
   task, dayDate, dayISO, logs, slots, slotWidth, slotDuration,
   getSelectionForCell, onSlotMouseDown, onSlotMouseEnter, onLogClick,
 }) => {
@@ -260,60 +265,6 @@ const DayContent: React.FC<DayContentProps> = ({
   );
 };
 
-// ── Week/Month summary content ────────────────────────────────────────────────
-
-interface SummaryContentProps {
-  task: Task;
-  days: Date[];
-  dayWidth: number;
-  onDayClick: (taskId: string, dayISO: string) => void;
-}
-
-const SummaryContent: React.FC<SummaryContentProps> = ({ task, days, dayWidth, onDayClick }) => {
-  const logs = useTimeLogStore((s) => s.logs);
-  return (
-    <>
-      {days.map((day) => {
-        const dayISO = format(day, 'yyyy-MM-dd');
-        const dayLogs = logs.filter(
-          (l) => l.taskId === task.id && (l.startTime.startsWith(dayISO) || l.endTime.startsWith(dayISO))
-        );
-        const totalMinutes = dayLogs.reduce((acc, l) => {
-          const diff = (new Date(l.endTime).getTime() - new Date(l.startTime).getTime()) / 60000;
-          return acc + diff;
-        }, 0);
-        const barFill = Math.min(totalMinutes / (8 * 60), 1);
-        return (
-          <div
-            key={dayISO}
-            className="relative shrink-0 border-r border-b border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"
-            style={{ width: dayWidth, height: ROW_HEIGHT }}
-            onClick={() => onDayClick(task.id, dayISO)}
-            title={`${task.title} · ${dayISO}: ${Math.round(totalMinutes)}min`}
-          >
-            {totalMinutes > 0 && (
-              <div
-                className="absolute bottom-1 left-1 right-1 rounded"
-                style={{
-                  height: Math.max(4, (ROW_HEIGHT - 8) * barFill),
-                  backgroundColor: task.color,
-                  opacity: task.status === 'completed' ? 0.4 : 0.75,
-                }}
-              />
-            )}
-            {totalMinutes > 30 && (
-              <span className="absolute inset-0 flex items-center justify-center text-white font-medium pointer-events-none"
-                style={{ fontSize: 10, textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
-                {Math.round(totalMinutes / 60)}h
-              </span>
-            )}
-          </div>
-        );
-      })}
-    </>
-  );
-};
-
 // ── Main Timeline Grid ────────────────────────────────────────────────────────
 
 interface TimelineGridProps {
@@ -333,6 +284,50 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const visibleTasks = getFlatList();
 
+  const todayISO = format(new Date(), 'yyyy-MM-dd');
+  const currentYear = parseISO(currentDate).getFullYear();
+
+  // ── Precompute date ranges ─────────────────────────────────────────────────
+  const allDays = useMemo(() => {
+    const s = new Date(currentYear - 1, 0, 1);
+    const e = new Date(currentYear + 1, 11, 31);
+    return getAllDays(s, e);
+  }, [currentYear]);
+
+  const allWeeks = useMemo(() => {
+    const s = new Date(currentYear - 1, 0, 1);
+    const e = new Date(currentYear + 1, 11, 31);
+    return getAllWeeks(s, e);
+  }, [currentYear]);
+
+  const allMonths = useMemo(() => {
+    const s = new Date(currentYear - 2, 0, 1);
+    const e = new Date(currentYear + 2, 11, 31);
+    return getAllMonths(s, e);
+  }, [currentYear]);
+
+  // ── Precompute log totals ──────────────────────────────────────────────────
+  const logTotals = useMemo(() => {
+    const byDay: Record<string, Record<string, number>> = {};
+    const byWeek: Record<string, Record<string, number>> = {};
+    const byMonth: Record<string, Record<string, number>> = {};
+    for (const log of logs) {
+      const startDate = parseISO(log.startTime);
+      const mins = differenceInMinutes(parseISO(log.endTime), startDate);
+      const { taskId } = log;
+      const dayKey = format(startDate, 'yyyy-MM-dd');
+      const weekKey = format(startOfWeek(startDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      const monthKey = format(startDate, 'yyyy-MM');
+      if (!byDay[taskId]) byDay[taskId] = {};
+      byDay[taskId][dayKey] = (byDay[taskId][dayKey] || 0) + mins;
+      if (!byWeek[taskId]) byWeek[taskId] = {};
+      byWeek[taskId][weekKey] = (byWeek[taskId][weekKey] || 0) + mins;
+      if (!byMonth[taskId]) byMonth[taskId] = {};
+      byMonth[taskId][monthKey] = (byMonth[taskId][monthKey] || 0) + mins;
+    }
+    return { byDay, byWeek, byMonth };
+  }, [logs]);
+
   // ── DnD ───────────────────────────────────────────────────────────────────
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -351,7 +346,7 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
     reorderTasks(reordered.map((t) => t.id));
   };
 
-  // ── Selection ─────────────────────────────────────────────────────────────
+  // ── Selection (hour view only) ─────────────────────────────────────────────
   const handleSelectionComplete = useCallback(
     (range: SelectionRange) => onOpenLogModal(range.taskId, range.dayISO, range.startSlot, range.endSlot),
     [onOpenLogModal]
@@ -359,35 +354,43 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
   const { isSelecting, onSlotMouseDown, onSlotMouseEnter, getSelectionForCell } =
     useTimelineSelection(handleSelectionComplete);
 
-  // ── Day view data ─────────────────────────────────────────────────────────
+  // ── Hour view data ─────────────────────────────────────────────────────────
   const slots = generateDaySlots(slotDuration);
   const slotWidth = getSlotWidth(slotDuration);
   const dayDate = parseISO(currentDate);
   const dayTotalWidth = getDayTotalWidth(slotDuration);
   const labelInterval = slotDuration === 30 ? 2 : 3;
 
-  // ── Auto-scroll: current time if viewing today, else 08:00 ──────────────
+  // ── Auto-scroll ────────────────────────────────────────────────────────────
   React.useEffect(() => {
-    if (viewMode !== 'day' || !scrollRef.current) return;
-    const now = new Date();
-    const todayISO = format(now, 'yyyy-MM-dd');
-    const anchorMinutes =
-      currentDate === todayISO
-        ? Math.max(0, now.getHours() * 60 + now.getMinutes() - 60) // 1h trước giờ hiện tại
-        : 8 * 60; // ngày khác thì về 08:00
-    scrollRef.current.scrollLeft = (anchorMinutes / slotDuration) * slotWidth;
-  }, [viewMode, currentDate, slotDuration, slotWidth]);
-
-  // ── Week/Month data ───────────────────────────────────────────────────────
-  const weekDays = getWeekDays(dayDate);
-  const monthDays = getMonthDays(dayDate);
-  const summaryDays = viewMode === 'week' ? weekDays : monthDays;
-  const DAY_COL_WIDTH = viewMode === 'week' ? Math.max(80, Math.floor(800 / 7)) : Math.max(36, Math.floor(800 / monthDays.length));
-
-  const handleDayClick = (taskId: string, dayISO: string) => {
-    setCurrentDate(dayISO);
-    setViewMode('day');
-  };
+    if (!scrollRef.current) return;
+    const el = scrollRef.current;
+    if (viewMode === 'hour') {
+      const now = new Date();
+      const anchorMinutes =
+        currentDate === todayISO
+          ? Math.max(0, now.getHours() * 60 + now.getMinutes() - 60)
+          : 8 * 60;
+      el.scrollLeft = (anchorMinutes / slotDuration) * slotWidth;
+    } else if (viewMode === 'day') {
+      const idx = allDays.findIndex((d) => format(d, 'yyyy-MM-dd') === currentDate);
+      if (idx >= 0) {
+        el.scrollLeft = Math.max(0, idx * DAY_VIEW_COL_W - el.clientWidth / 2 + DAY_VIEW_COL_W / 2);
+      }
+    } else if (viewMode === 'week') {
+      const curWeekKey = format(startOfWeek(parseISO(currentDate), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      const idx = allWeeks.findIndex((w) => format(w, 'yyyy-MM-dd') === curWeekKey);
+      if (idx >= 0) {
+        el.scrollLeft = Math.max(0, idx * WEEK_VIEW_COL_W - el.clientWidth / 2 + WEEK_VIEW_COL_W / 2);
+      }
+    } else {
+      const curMonthKey = format(parseISO(currentDate), 'yyyy-MM');
+      const idx = allMonths.findIndex((m) => format(m, 'yyyy-MM') === curMonthKey);
+      if (idx >= 0) {
+        el.scrollLeft = Math.max(0, idx * MONTH_VIEW_COL_W - el.clientWidth / 2 + MONTH_VIEW_COL_W / 2);
+      }
+    }
+  }, [viewMode, currentDate, allDays, allWeeks, allMonths, slotDuration, slotWidth, todayISO]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const getDepth = useCallback((task: Task): number => {
@@ -405,9 +408,11 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
   const hasChildren = useCallback((id: string) => tasks.some((t) => t.parentId === id), [tasks]);
 
   // ── Content dimensions ────────────────────────────────────────────────────
-  const contentWidth = viewMode === 'day'
-    ? SIDEBAR_WIDTH + dayTotalWidth
-    : SIDEBAR_WIDTH + summaryDays.length * DAY_COL_WIDTH;
+  const contentWidth =
+    viewMode === 'hour' ? SIDEBAR_WIDTH + dayTotalWidth :
+    viewMode === 'day' ? SIDEBAR_WIDTH + allDays.length * DAY_VIEW_COL_W :
+    viewMode === 'week' ? SIDEBAR_WIDTH + allWeeks.length * WEEK_VIEW_COL_W :
+    SIDEBAR_WIDTH + allMonths.length * MONTH_VIEW_COL_W;
 
   // ── Empty state ───────────────────────────────────────────────────────────
   if (visibleTasks.length === 0) {
@@ -425,8 +430,8 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
   return (
     <div
       ref={scrollRef}
-      className={`flex-1 overflow-auto no-select`}
-      style={{ cursor: isSelecting ? 'crosshair' : undefined }}
+      className="flex-1 overflow-auto no-select"
+      style={{ cursor: isSelecting && viewMode === 'hour' ? 'crosshair' : undefined }}
     >
       {/* ── Inner container: full content width ── */}
       <div style={{ width: contentWidth, minWidth: contentWidth, position: 'relative' }}>
@@ -444,52 +449,141 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
             <span className="text-xs font-medium text-slate-400 dark:text-slate-500">Tasks</span>
           </div>
 
-          {/* Time labels (day view) */}
-          {viewMode === 'day' ? (
-            slots.map((slot, i) => (
+          {/* ── Hour view: time labels ── */}
+          {viewMode === 'hour' && slots.map((slot, i) => (
+            <div
+              key={slot.index}
+              className="relative shrink-0 border-r border-slate-100 dark:border-slate-800"
+              style={{ width: slotWidth, height: HEADER_HEIGHT }}
+            >
+              {i % labelInterval === 0 && (
+                <span
+                  className="absolute left-1 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 whitespace-nowrap font-medium"
+                  style={{ fontSize: slotDuration === 10 ? '10px' : '11px' }}
+                >
+                  {slot.label}
+                </span>
+              )}
+            </div>
+          ))}
+
+          {/* ── Day view: day columns ── */}
+          {viewMode === 'day' && allDays.map((day) => {
+            const dayISO = format(day, 'yyyy-MM-dd');
+            const wknd = isWeekend(day);
+            const isToday = dayISO === todayISO;
+            const isCurrent = dayISO === currentDate;
+            const isFirst = day.getDate() === 1;
+            const isJan1 = isFirst && day.getMonth() === 0;
+            return (
               <div
-                key={slot.index}
-                className="relative shrink-0 border-r border-slate-100 dark:border-slate-800"
-                style={{ width: slotWidth, height: HEADER_HEIGHT }}
+                key={dayISO}
+                className={`relative shrink-0 border-r flex flex-col items-center justify-center cursor-pointer select-none
+                  ${wknd ? 'bg-slate-100 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700' : 'border-slate-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/40'}
+                  ${isToday ? '!bg-blue-50 dark:!bg-blue-900/30' : ''}
+                  ${isCurrent && !isToday ? 'ring-1 ring-inset ring-blue-300 dark:ring-blue-700' : ''}
+                `}
+                style={{ width: DAY_VIEW_COL_W, height: HEADER_HEIGHT }}
+                onClick={() => { setCurrentDate(dayISO); setViewMode('hour'); }}
+                title={format(day, 'EEEE, MMMM d, yyyy')}
               >
-                {i % labelInterval === 0 && (
-                  <span
-                    className="absolute left-1 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 whitespace-nowrap font-medium"
-                    style={{ fontSize: slotDuration === 10 ? '10px' : '11px' }}
-                  >
-                    {slot.label}
+                {isJan1 && (
+                  <span className="leading-none font-bold text-indigo-500 dark:text-indigo-400" style={{ fontSize: 8 }}>
+                    {day.getFullYear()}
                   </span>
                 )}
-              </div>
-            ))
-          ) : (
-            /* Day labels (week/month view) */
-            summaryDays.map((d) => (
-              <div
-                key={format(d, 'yyyy-MM-dd')}
-                className="shrink-0 border-r border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center"
-                style={{ width: DAY_COL_WIDTH, height: HEADER_HEIGHT }}
-              >
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  {viewMode === 'week' ? format(d, 'EEE d') : format(d, 'd')}
-                </span>
-                {viewMode === 'week' && (
-                  <span className="text-xs text-slate-400 dark:text-slate-500">{format(d, 'MMM')}</span>
+                {isFirst && !isJan1 && (
+                  <span className="leading-none font-bold text-blue-400 dark:text-blue-500 uppercase" style={{ fontSize: 8 }}>
+                    {format(day, 'MMM')}
+                  </span>
                 )}
+                <span
+                  className={`leading-none font-semibold ${isToday ? 'text-blue-600 dark:text-blue-400' : wknd ? 'text-slate-500 dark:text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}
+                  style={{ fontSize: 11 }}
+                >
+                  {format(day, 'd')}
+                </span>
+                <span className="leading-none text-slate-400 dark:text-slate-500" style={{ fontSize: 8 }}>
+                  {format(day, 'EEEEE')}
+                </span>
               </div>
-            ))
-          )}
+            );
+          })}
+
+          {/* ── Week view: week columns ── */}
+          {viewMode === 'week' && allWeeks.map((week) => {
+            const weekISO = format(week, 'yyyy-MM-dd');
+            const curWeekKey = format(startOfWeek(parseISO(currentDate), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+            const isCurWeek = weekISO === curWeekKey;
+            const isNewYear = week.getMonth() === 0 && week.getDate() <= 7;
+            return (
+              <div
+                key={weekISO}
+                className={`relative shrink-0 border-r border-slate-100 dark:border-slate-800 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/40
+                  ${isCurWeek ? '!bg-blue-50 dark:!bg-blue-900/30' : ''}
+                `}
+                style={{ width: WEEK_VIEW_COL_W, height: HEADER_HEIGHT }}
+                onClick={() => { setCurrentDate(weekISO); setViewMode('day'); }}
+                title={`Week of ${format(week, 'MMM d, yyyy')}`}
+              >
+                {isNewYear && (
+                  <span className="leading-none font-bold text-indigo-500 dark:text-indigo-400" style={{ fontSize: 8 }}>
+                    {week.getFullYear()}
+                  </span>
+                )}
+                <span
+                  className={`leading-none font-semibold ${isCurWeek ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'}`}
+                  style={{ fontSize: 10 }}
+                >
+                  {format(week, 'MMM d')}
+                </span>
+                <span className="leading-none text-slate-400 dark:text-slate-500" style={{ fontSize: 9 }}>
+                  W{format(week, 'w')}
+                </span>
+              </div>
+            );
+          })}
+
+          {/* ── Month view: month columns ── */}
+          {viewMode === 'month' && allMonths.map((month) => {
+            const monthKey = format(month, 'yyyy-MM');
+            const curMonthKey = format(parseISO(currentDate), 'yyyy-MM');
+            const isCurMonth = monthKey === curMonthKey;
+            const isJan = month.getMonth() === 0;
+            return (
+              <div
+                key={monthKey}
+                className={`relative shrink-0 border-r border-slate-100 dark:border-slate-800 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/40
+                  ${isCurMonth ? '!bg-blue-50 dark:!bg-blue-900/30' : ''}
+                `}
+                style={{ width: MONTH_VIEW_COL_W, height: HEADER_HEIGHT }}
+                onClick={() => { setCurrentDate(format(month, 'yyyy-MM-dd')); setViewMode('week'); }}
+                title={format(month, 'MMMM yyyy')}
+              >
+                {isJan && (
+                  <span className="leading-none font-bold text-indigo-500 dark:text-indigo-400" style={{ fontSize: 9 }}>
+                    {month.getFullYear()}
+                  </span>
+                )}
+                <span
+                  className={`leading-none font-semibold ${isCurMonth ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'}`}
+                  style={{ fontSize: 11 }}
+                >
+                  {format(month, 'MMM')}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         {/* ── TASK ROWS ── */}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={visibleTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
             {visibleTasks.map((task) => {
-              const taskLogs = logs.filter(
-                (l) =>
-                  l.taskId === task.id &&
-                  (l.startTime.startsWith(currentDate) || l.endTime.startsWith(currentDate))
-              );
+              const taskLogs = viewMode === 'hour'
+                ? logs.filter((l) => l.taskId === task.id && (l.startTime.startsWith(currentDate) || l.endTime.startsWith(currentDate)))
+                : [];
+
               return (
                 <SortableRow
                   key={task.id}
@@ -499,8 +593,9 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                   onEdit={onEditTask}
                   onAddSubtask={onAddSubtask}
                 >
-                  {viewMode === 'day' ? (
-                    <DayContent
+                  {/* ── Hour view ── */}
+                  {viewMode === 'hour' && (
+                    <HourContent
                       task={task}
                       dayDate={dayDate}
                       dayISO={currentDate}
@@ -513,13 +608,123 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                       onSlotMouseEnter={onSlotMouseEnter}
                       onLogClick={onEditLog}
                     />
-                  ) : (
-                    <SummaryContent
-                      task={task}
-                      days={summaryDays}
-                      dayWidth={DAY_COL_WIDTH}
-                      onDayClick={handleDayClick}
-                    />
+                  )}
+
+                  {/* ── Day view: one column per day ── */}
+                  {viewMode === 'day' && (
+                    <div className="flex shrink-0">
+                      {allDays.map((day) => {
+                        const dayISO = format(day, 'yyyy-MM-dd');
+                        const wknd = isWeekend(day);
+                        const isToday = dayISO === todayISO;
+                        const mins = logTotals.byDay[task.id]?.[dayISO] || 0;
+                        const fill = Math.min(mins / (8 * 60), 1);
+                        return (
+                          <div
+                            key={dayISO}
+                            className={`relative shrink-0 border-r border-b cursor-pointer
+                              ${wknd
+                                ? 'bg-slate-100/80 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                                : 'border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30'}
+                              ${isToday ? '!bg-blue-50/60 dark:!bg-blue-900/20' : ''}
+                            `}
+                            style={{ width: DAY_VIEW_COL_W, height: ROW_HEIGHT }}
+                            onClick={() => { setCurrentDate(dayISO); setViewMode('hour'); }}
+                            title={`${task.title} · ${format(day, 'EEE, MMM d')}: ${Math.round(mins)}min`}
+                          >
+                            {mins > 0 && (
+                              <div
+                                className="absolute bottom-0.5 left-0.5 right-0.5 rounded-sm"
+                                style={{
+                                  height: Math.max(3, (ROW_HEIGHT - 6) * fill),
+                                  backgroundColor: task.color,
+                                  opacity: task.status === 'completed' ? 0.4 : 0.85,
+                                }}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* ── Week view: one column per week ── */}
+                  {viewMode === 'week' && (
+                    <div className="flex shrink-0">
+                      {allWeeks.map((week) => {
+                        const weekISO = format(week, 'yyyy-MM-dd');
+                        const mins = logTotals.byWeek[task.id]?.[weekISO] || 0;
+                        const fill = Math.min(mins / (5 * 8 * 60), 1);
+                        return (
+                          <div
+                            key={weekISO}
+                            className="relative shrink-0 border-r border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 cursor-pointer"
+                            style={{ width: WEEK_VIEW_COL_W, height: ROW_HEIGHT }}
+                            onClick={() => { setCurrentDate(weekISO); setViewMode('day'); }}
+                            title={`${task.title} · W${format(week, 'w')}: ${Math.round(mins / 60 * 10) / 10}h`}
+                          >
+                            {mins > 0 && (
+                              <div
+                                className="absolute bottom-0.5 left-0.5 right-0.5 rounded-sm"
+                                style={{
+                                  height: Math.max(3, (ROW_HEIGHT - 6) * fill),
+                                  backgroundColor: task.color,
+                                  opacity: task.status === 'completed' ? 0.4 : 0.85,
+                                }}
+                              />
+                            )}
+                            {mins > 60 && (
+                              <span
+                                className="absolute inset-0 flex items-end justify-center pb-1 pointer-events-none text-white font-medium"
+                                style={{ fontSize: 9, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}
+                              >
+                                {Math.round(mins / 60)}h
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* ── Month view: one column per month ── */}
+                  {viewMode === 'month' && (
+                    <div className="flex shrink-0">
+                      {allMonths.map((month) => {
+                        const monthKey = format(month, 'yyyy-MM');
+                        const mins = logTotals.byMonth[task.id]?.[monthKey] || 0;
+                        const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+                        const fill = Math.min(mins / (daysInMonth * 8 * 60 * 0.7), 1);
+                        return (
+                          <div
+                            key={monthKey}
+                            className="relative shrink-0 border-r border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 cursor-pointer"
+                            style={{ width: MONTH_VIEW_COL_W, height: ROW_HEIGHT }}
+                            onClick={() => { setCurrentDate(format(month, 'yyyy-MM-dd')); setViewMode('week'); }}
+                            title={`${task.title} · ${format(month, 'MMM yyyy')}: ${Math.round(mins / 60 * 10) / 10}h`}
+                          >
+                            {mins > 0 && (
+                              <div
+                                className="absolute bottom-0.5 left-0.5 right-0.5 rounded-sm"
+                                style={{
+                                  height: Math.max(3, (ROW_HEIGHT - 6) * fill),
+                                  backgroundColor: task.color,
+                                  opacity: task.status === 'completed' ? 0.4 : 0.85,
+                                }}
+                              />
+                            )}
+                            {mins > 60 && (
+                              <span
+                                className="absolute inset-0 flex items-end justify-center pb-1 pointer-events-none text-white font-medium"
+                                style={{ fontSize: 9, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}
+                              >
+                                {Math.round(mins / 60)}h
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </SortableRow>
               );
@@ -527,8 +732,8 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
           </SortableContext>
         </DndContext>
 
-        {/* Now line (day view only) */}
-        {viewMode === 'day' && (
+        {/* Now line (hour view only) */}
+        {viewMode === 'hour' && (
           <NowLine slotDuration={slotDuration} currentDate={currentDate} offsetLeft={SIDEBAR_WIDTH} />
         )}
       </div>

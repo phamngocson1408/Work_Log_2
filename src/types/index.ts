@@ -1,5 +1,5 @@
 export type TaskStatus = 'not_started' | 'in_progress' | 'completed';
-export type ViewMode = 'day' | 'week' | 'month';
+export type ViewMode = 'hour' | 'day' | 'week' | 'month';
 export type SlotDuration = 10 | 30;
 
 export interface Task {

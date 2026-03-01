@@ -5,6 +5,8 @@ import {
   startOfMonth,
   endOfMonth,
   addDays,
+  addWeeks,
+  addMonths,
   addMinutes,
   parseISO,
   isSameDay,
@@ -98,6 +100,48 @@ export function getMonthDays(date: Date): Date[] {
     current = addDays(current, 1);
   }
   return days;
+}
+
+/** Generate every day between start and end (inclusive) */
+export function getAllDays(start: Date, end: Date): Date[] {
+  const days: Date[] = [];
+  let cur = startOfDay(start);
+  const endDay = startOfDay(end);
+  while (cur <= endDay) {
+    days.push(cur);
+    cur = addDays(cur, 1);
+  }
+  return days;
+}
+
+/** Generate one date per week (Monday) between start and end */
+export function getAllWeeks(start: Date, end: Date): Date[] {
+  const weeks: Date[] = [];
+  let cur = startOfWeek(start, { weekStartsOn: 1 });
+  const endW = startOfWeek(end, { weekStartsOn: 1 });
+  while (cur <= endW) {
+    weeks.push(cur);
+    cur = addWeeks(cur, 1);
+  }
+  return weeks;
+}
+
+/** Generate one date per month (1st) between start and end */
+export function getAllMonths(start: Date, end: Date): Date[] {
+  const months: Date[] = [];
+  let cur = startOfMonth(start);
+  const endM = startOfMonth(end);
+  while (cur <= endM) {
+    months.push(cur);
+    cur = addMonths(cur, 1);
+  }
+  return months;
+}
+
+/** True if the date falls on Saturday or Sunday */
+export function isWeekend(date: Date): boolean {
+  const d = date.getDay();
+  return d === 0 || d === 6;
 }
 
 export function formatDate(date: Date): string {
