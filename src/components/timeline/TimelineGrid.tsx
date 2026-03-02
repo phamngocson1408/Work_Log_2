@@ -51,6 +51,7 @@ interface TaskNameCellProps {
   onEdit: (t: Task) => void;
   onAddSubtask: (pid: string) => void;
   dragHandleProps?: Record<string, unknown>;
+  latestProgress: number | null;
 }
 
 const TaskNameCell: React.FC<TaskNameCellProps> = ({
@@ -60,6 +61,7 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
   onEdit,
   onAddSubtask,
   dragHandleProps,
+  latestProgress,
 }) => {
   const { toggleExpanded, deleteTask, updateTask } = useTaskStore();
   const [showMenu, setShowMenu] = useState(false);
@@ -122,6 +124,16 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
       >
         {task.title}
       </span>
+
+      {/* Progress badge */}
+      {latestProgress !== null && (
+        <span
+          className="shrink-0 text-[10px] font-semibold tabular-nums px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
+          title={`Latest progress: ${latestProgress}%`}
+        >
+          {latestProgress}%
+        </span>
+      )}
 
       {/* Status icon */}
       <button
@@ -189,9 +201,10 @@ interface SortableRowProps {
   onEdit: (t: Task) => void;
   onAddSubtask: (pid: string) => void;
   children: React.ReactNode;
+  latestProgress: number | null;
 }
 
-const SortableRow: React.FC<SortableRowProps> = ({ task, depth, hasChildren, onEdit, onAddSubtask, children }) => {
+const SortableRow: React.FC<SortableRowProps> = ({ task, depth, hasChildren, onEdit, onAddSubtask, children, latestProgress }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
   return (
     <div
@@ -211,6 +224,7 @@ const SortableRow: React.FC<SortableRowProps> = ({ task, depth, hasChildren, onE
         onEdit={onEdit}
         onAddSubtask={onAddSubtask}
         dragHandleProps={{ ...attributes, ...listeners }}
+        latestProgress={latestProgress}
       />
       {children}
     </div>
@@ -629,6 +643,11 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                   })
                 : [];
 
+              const latestProgressLog = logs
+                .filter((l) => l.taskId === task.id && l.progress !== null)
+                .sort((a, b) => b.startTime.localeCompare(a.startTime))[0];
+              const latestProgress = latestProgressLog?.progress ?? null;
+
               return (
                 <SortableRow
                   key={task.id}
@@ -637,6 +656,7 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                   hasChildren={hasChildren(task.id)}
                   onEdit={onEditTask}
                   onAddSubtask={onAddSubtask}
+                  latestProgress={latestProgress}
                 >
                   {/* ── Hour view ── */}
                   {viewMode === 'hour' && (

@@ -19,6 +19,7 @@ export interface TimeLog {
   startTime: string;   // ISO 8601 datetime string
   endTime: string;     // ISO 8601 datetime string
   content: string;
+  progress: number | null;  // 0-100, null = not set
 }
 
 export interface Settings {

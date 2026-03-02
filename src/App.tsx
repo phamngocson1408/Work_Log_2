@@ -75,7 +75,7 @@ export default function App() {
       const day = parseISO(dayISO);
       const startTime = format(slotIndexToDate(day, startSlot, slotDuration), "yyyy-MM-dd'T'HH:mm");
       const endTime = format(addMinutes(slotIndexToDate(day, endSlot, slotDuration), slotDuration), "yyyy-MM-dd'T'HH:mm");
-      addLog({ taskId, startTime, endTime, content: copiedLog.content });
+      addLog({ taskId, startTime, endTime, content: copiedLog.content, progress: null });
     },
     [copiedLog, slotDuration, addLog]
   );

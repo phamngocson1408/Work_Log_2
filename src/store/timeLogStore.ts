@@ -20,6 +20,7 @@ function rowToLog(row: Record<string, unknown>): TimeLog {
     startTime: normalizeTimestamp(row.start_time as string),
     endTime: normalizeTimestamp(row.end_time as string),
     content: (row.content as string) ?? '',
+    progress: (row.progress as number | null) ?? null,
   };
 }
 
@@ -66,6 +67,7 @@ export const useTimeLogStore = create<TimeLogState>((set, get) => ({
       start_time: newLog.startTime,
       end_time: newLog.endTime,
       content: newLog.content,
+      progress: newLog.progress ?? null,
     }).then(({ error }) => {
       if (error) {
         set((s) => ({ logs: s.logs.filter((l) => l.id !== newLog.id) }));
@@ -91,6 +93,7 @@ export const useTimeLogStore = create<TimeLogState>((set, get) => ({
     if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime;
     if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime;
     if (updates.content !== undefined) dbUpdates.content = updates.content;
+    if (updates.progress !== undefined) dbUpdates.progress = updates.progress ?? null;
 
     supabase.from('time_logs').update(dbUpdates).eq('id', id).then(({ error }) => {
       if (error) {

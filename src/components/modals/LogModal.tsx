@@ -33,6 +33,7 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [taskId, setTaskId] = useState('');
+  const [progress, setProgress] = useState<number | null>(null);
   const [conflictAction, setConflictAction] = useState<'ask' | 'merge' | 'overwrite' | null>(null);
   const [conflicts, setConflicts] = useState<TimeLog[]>([]);
 
@@ -47,6 +48,7 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
       setStartTime(config.log.startTime.slice(0, 16));
       setEndTime(config.log.endTime.slice(0, 16));
       setTaskId(config.log.taskId);
+      setProgress(config.log.progress ?? null);
     } else if (
       config.taskId &&
       config.dayISO &&
@@ -64,6 +66,7 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
       setStartTime(format(start, "yyyy-MM-dd'T'HH:mm"));
       setEndTime(format(end, "yyyy-MM-dd'T'HH:mm"));
       setTaskId(config.taskId);
+      setProgress(null);
     }
 
     setConflictAction(null);
@@ -129,9 +132,10 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
         startTime: startFull,
         endTime: endFull,
         content,
+        progress,
       });
     } else {
-      addLog({ taskId, startTime: startFull, endTime: endFull, content });
+      addLog({ taskId, startTime: startFull, endTime: endFull, content, progress });
     }
 
     onClose();
@@ -276,6 +280,39 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
                 placeholder="What did you work on?"
                 minHeight={80}
               />
+            </div>
+
+            {/* Progress */}
+            <div>
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
+                Progress (%)
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={progress ?? 0}
+                  onChange={(e) => setProgress(Number(e.target.value))}
+                  className="flex-1 accent-blue-600"
+                />
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={progress ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setProgress(v === '' ? null : Math.min(100, Math.max(0, Number(v))));
+                    }}
+                    placeholder="—"
+                    className="w-14 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-sm text-center text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <span className="text-sm text-slate-400">%</span>
+                </div>
+              </div>
             </div>
 
             {/* Aggregated subtask notes (read-only) */}
