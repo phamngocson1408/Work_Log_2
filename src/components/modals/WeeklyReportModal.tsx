@@ -360,7 +360,7 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ isOpen, on
   const { tasks } = useTaskStore();
 
   // ── Date range state ──────────────────────────────────────────────────────
-  const defaultFrom = format(subDays(parseISO(todayISO), 6), 'yyyy-MM-dd');
+  const defaultFrom = format(subDays(parseISO(todayISO), 7), 'yyyy-MM-dd');
   const defaultTo = todayISO;
 
   const [fromISO, setFromISO] = useState(defaultFrom);
@@ -369,7 +369,7 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ isOpen, on
   // Reset on open
   useEffect(() => {
     if (isOpen) {
-      setFromISO(format(subDays(parseISO(todayISO), 6), 'yyyy-MM-dd'));
+      setFromISO(format(subDays(parseISO(todayISO), 7), 'yyyy-MM-dd'));
       setToISO(todayISO);
       setShowFilter(false);
     }
