@@ -3,12 +3,14 @@ import ReactDOM from 'react-dom';
 import { parseISO, format, differenceInMinutes, startOfDay, startOfWeek, addDays } from 'date-fns';
 import {
   DndContext,
-  closestCenter,
+  DragOverlay,
+  pointerWithin,
   PointerSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -252,7 +254,7 @@ const SortableRow: React.FC<SortableRowProps> = ({ task, depth, hasChildren, onE
         height: ROW_HEIGHT,
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.5 : task.hidden && isShowingHidden ? 0.55 : 1,
+        opacity: isDragging ? 0 : task.hidden && isShowingHidden ? 0.55 : 1,
       }}
     >
       <TaskNameCell
@@ -352,6 +354,7 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showHiddenTasks, setShowHiddenTasks] = useState(false);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const visibleTasks = getFlatList(showHiddenTasks);
   const hiddenTasksCount = tasks.filter((t) => t.hidden).length;
 
@@ -418,20 +421,64 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
 
   // ── DnD ───────────────────────────────────────────────────────────────────
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveTaskId(event.active.id as string);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveTaskId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIdx = visibleTasks.findIndex((t) => t.id === active.id);
-    const newIdx = visibleTasks.findIndex((t) => t.id === over.id);
-    if (oldIdx === -1 || newIdx === -1) return;
-    const reordered = [...visibleTasks];
-    const [moved] = reordered.splice(oldIdx, 1);
-    reordered.splice(newIdx, 0, moved);
-    reorderTasks(reordered.map((t) => t.id));
+
+    const activeTask = tasks.find((t) => t.id === active.id);
+    if (!activeTask) return;
+
+    if (activeTask.parentId !== null) {
+      // ── Subtask: only reorder within the same parent ──────────────────────
+      const overTask = tasks.find((t) => t.id === over.id);
+      if (!overTask || overTask.parentId !== activeTask.parentId) return;
+
+      const siblings = tasks
+        .filter((t) => t.parentId === activeTask.parentId)
+        .sort((a, b) => a.orderIndex - b.orderIndex);
+      const oldIdx = siblings.findIndex((t) => t.id === active.id);
+      const newIdx = siblings.findIndex((t) => t.id === over.id);
+      if (oldIdx === -1 || newIdx === -1) return;
+
+      const reordered = [...siblings];
+      const [moved] = reordered.splice(oldIdx, 1);
+      reordered.splice(newIdx, 0, moved);
+      reorderTasks(reordered.map((t) => t.id));
+    } else {
+      // ── Root task: reorder among root tasks only ──────────────────────────
+      const overTask = tasks.find((t) => t.id === over.id);
+      if (!overTask) return;
+
+      // If dropped on a subtask, climb to its root ancestor
+      let overRoot = overTask;
+      while (overRoot.parentId !== null) {
+        const parent = tasks.find((t) => t.id === overRoot.parentId);
+        if (!parent) break;
+        overRoot = parent;
+      }
+      if (overRoot.id === active.id) return; // dropped on own subtask
+
+      const rootTasks = tasks
+        .filter((t) => t.parentId === null)
+        .sort((a, b) => a.orderIndex - b.orderIndex);
+      const oldIdx = rootTasks.findIndex((t) => t.id === active.id);
+      const newIdx = rootTasks.findIndex((t) => t.id === overRoot.id);
+      if (oldIdx === -1 || newIdx === -1) return;
+
+      const reordered = [...rootTasks];
+      const [moved] = reordered.splice(oldIdx, 1);
+      reordered.splice(newIdx, 0, moved);
+      reorderTasks(reordered.map((t) => t.id));
+    }
   };
 
   // ── Selection (hour view only) ─────────────────────────────────────────────
@@ -744,7 +791,7 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
         </div>
 
         {/* ── TASK ROWS ── */}
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <SortableContext items={visibleTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
             {visibleTasks.map((task) => {
               const taskLogs = viewMode === 'hour'
@@ -923,6 +970,26 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
               );
             })}
           </SortableContext>
+
+          {/* Drag overlay — shows a clean task name pill following the cursor */}
+          <DragOverlay dropAnimation={null}>
+            {activeTaskId ? (() => {
+              const t = tasks.find((x) => x.id === activeTaskId);
+              if (!t) return null;
+              return (
+                <div
+                  className="flex items-center gap-2 px-3 rounded shadow-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 select-none"
+                  style={{ width: SIDEBAR_WIDTH, height: ROW_HEIGHT, opacity: 0.92 }}
+                >
+                  <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-6 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-6 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
+                  </svg>
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                  <span className="truncate font-medium">{t.title}</span>
+                </div>
+              );
+            })() : null}
+          </DragOverlay>
         </DndContext>
 
         {/* Now line (hour view only) */}
