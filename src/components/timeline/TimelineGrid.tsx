@@ -255,7 +255,7 @@ const HourContent: React.FC<HourContentProps> = ({
               isHourBoundary ? 'border-slate-200 dark:border-slate-700' : 'border-slate-100/50 dark:border-slate-800/40'
             } ${isSelected ? 'bg-blue-100 dark:bg-blue-900/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
             style={{ width: slotWidth }}
-            onMouseDown={(e) => { e.preventDefault(); onSlotMouseDown(task.id, dayISO, slot.index); }}
+            onMouseDown={(e) => { if (e.button !== 0) return; e.preventDefault(); onSlotMouseDown(task.id, dayISO, slot.index); }}
             onMouseEnter={() => onSlotMouseEnter(task.id, dayISO, slot.index)}
             onContextMenu={(e) => {
               if (!onSlotContextMenu) return;
