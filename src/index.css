@@ -112,6 +112,20 @@
 }
 .dark .rich-editor blockquote { border-color: #475569; color: #94a3b8; }
 
+/* Images in editor */
+.rich-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 0.4em 0;
+  display: block;
+  cursor: default;
+}
+.rich-editor img.ProseMirror-selectednode {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
 /* Placeholder */
 .rich-editor p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
@@ -142,4 +156,11 @@
   padding-left: 0.5em;
   margin: 0.2em 0;
   opacity: 0.8;
+}
+.rich-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 0.3em 0;
+  display: block;
 }

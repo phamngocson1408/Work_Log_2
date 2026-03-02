@@ -203,6 +203,148 @@ function generateTextReport(
   return lines.join('\n');
 }
 
+// ── HTML report generator ──────────────────────────────────────────────────
+
+function deltaHtml(delta: number | null): string {
+  if (delta === null) return '';
+  const cls = delta > 0 ? 'color:#16a34a' : delta < 0 ? 'color:#dc2626' : 'color:#64748b';
+  const label = delta > 0 ? `+${delta}%` : delta < 0 ? `${delta}%` : '±0%';
+  return `<span style="font-size:11px;font-weight:600;${cls}">${label}</span>`;
+}
+
+function progressBar(p: number): string {
+  return `<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+    <div style="flex:1;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden">
+      <div style="width:${p}%;height:100%;background:#3b82f6;border-radius:3px"></div>
+    </div>
+    <span style="font-size:11px;color:#475569;min-width:28px;text-align:right">${p}%</span>
+  </div>`;
+}
+
+function logEntryHtml(log: TimeLog): string {
+  const date = log.startTime.slice(0, 10);
+  const start = log.startTime.slice(11, 16);
+  const end = log.endTime.slice(11, 16);
+  const mins = differenceInMinutes(parseISO(log.endTime), parseISO(log.startTime));
+  const duration = fmtHours(Math.max(0, mins) / 60);
+  const hasContent = !isNoteEmpty(log.content);
+  return `<div style="margin:6px 0;padding:8px 10px;background:#f8fafc;border-radius:6px;border-left:3px solid #cbd5e1">
+    <div style="font-size:11px;color:#64748b;font-weight:500;margin-bottom:${hasContent ? '6px' : '0'}">${date} &nbsp;${start}–${end} &nbsp;<span style="color:#94a3b8">(${duration})</span></div>
+    ${hasContent ? `<div style="font-size:13px;color:#334155">${log.content}</div>` : ''}
+  </div>`;
+}
+
+function taskSectionHtml(report: TaskReport, children: TaskReport[], tasks: Task[]): string {
+  const { task, currentHours, prevHours, currentProgress, prevProgress, currentLogs } = report;
+  const delta = currentProgress !== null && prevProgress !== null ? currentProgress - prevProgress : null;
+  const progressDisplay = currentProgress ?? prevProgress;
+  const isSubtask = !!task.parentId;
+  const indent = isSubtask ? 'margin-left:20px;border-left:3px solid #e2e8f0;padding-left:14px;' : '';
+  const titleSize = isSubtask ? '14px' : '16px';
+  const bgColor = isSubtask ? '#f8fafc' : '#ffffff';
+
+  const logsHtml = currentLogs.length > 0
+    ? `<div style="margin-top:10px"><div style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Logs</div>${currentLogs.map(logEntryHtml).join('')}</div>`
+    : '';
+
+  const noteHtml = !isNoteEmpty(task.note)
+    ? `<div style="margin-top:10px;font-size:13px;color:#475569;line-height:1.6">${task.note}</div>`
+    : '';
+
+  const statsHtml = `<div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:10px">
+    <div><span style="font-size:11px;color:#94a3b8;display:block">This period</span><span style="font-size:15px;font-weight:600;color:#1e293b">${fmtHours(currentHours)}</span></div>
+    <div><span style="font-size:11px;color:#94a3b8;display:block">Prev period</span><span style="font-size:15px;font-weight:600;color:#94a3b8">${fmtHours(prevHours)}</span></div>
+    ${progressDisplay !== null ? `<div style="flex:1;min-width:120px"><span style="font-size:11px;color:#94a3b8;display:block">Progress ${deltaHtml(delta)}</span>${progressBar(progressDisplay)}</div>` : ''}
+  </div>`;
+
+  const childrenHtml = children.map((sr) => taskSectionHtml(sr, [], tasks)).join('');
+
+  return `<div style="margin-bottom:16px;padding:14px 16px;background:${bgColor};border-radius:10px;border:1px solid #e2e8f0;${indent}">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="width:10px;height:10px;border-radius:50%;background:${task.color};flex-shrink:0;display:inline-block"></span>
+      <span style="font-size:${titleSize};font-weight:600;color:#0f172a">${task.title}</span>
+    </div>
+    ${statsHtml}
+    ${noteHtml}
+    ${logsHtml}
+    ${childrenHtml ? `<div style="margin-top:12px">${childrenHtml}</div>` : ''}
+  </div>`;
+}
+
+function generateHtmlReport(
+  reports: TaskReport[],
+  currentStart: Date,
+  currentEnd: Date,
+  prevStart: Date,
+  prevEnd: Date,
+  tasks: Task[],
+): string {
+  const parentReports = reports.filter((r) => !r.task.parentId);
+  const subtaskReports = reports.filter((r) => r.task.parentId);
+  const orphanSubtasks = subtaskReports.filter(
+    (s) => !parentReports.some((p) => p.task.id === s.task.parentId)
+  );
+
+  const totalCurrent = reports.filter((r) => !r.task.parentId).reduce((s, r) => s + r.currentHours, 0);
+  const totalPrev = reports.filter((r) => !r.task.parentId).reduce((s, r) => s + r.prevHours, 0);
+
+  const sectionsHtml = [
+    ...parentReports.map((pr) => {
+      const children = subtaskReports.filter((s) => s.task.parentId === pr.task.id);
+      return taskSectionHtml(pr, children, tasks);
+    }),
+    ...orphanSubtasks.map((sr) => taskSectionHtml(sr, [], tasks)),
+  ].join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Report ${format(currentStart, 'MMM d')}–${format(currentEnd, 'MMM d, yyyy')}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;color:#1e293b;padding:32px 16px}
+  .container{max-width:720px;margin:0 auto}
+  img{max-width:100%;height:auto;border-radius:6px;display:block;margin:6px 0}
+  ul,ol{padding-left:1.4em;margin:4px 0}
+  li{margin:2px 0}
+  p{margin:0 0 4px 0}
+  p:last-child{margin-bottom:0}
+  blockquote{border-left:3px solid #cbd5e1;padding-left:10px;color:#64748b;margin:4px 0}
+  code{font-family:monospace;font-size:.85em;background:#f1f5f9;border-radius:3px;padding:1px 4px}
+  strong{font-weight:600}
+  em{font-style:italic}
+  s{text-decoration:line-through}
+</style>
+</head>
+<body>
+<div class="container">
+  <div style="margin-bottom:28px">
+    <h1 style="font-size:22px;font-weight:700;color:#0f172a;margin-bottom:6px">Report</h1>
+    <div style="font-size:13px;color:#64748b">
+      <strong style="color:#334155">${format(currentStart, 'MMM d')} – ${format(currentEnd, 'MMM d, yyyy')}</strong>
+      &nbsp;vs&nbsp; ${format(prevStart, 'MMM d')} – ${format(prevEnd, 'MMM d, yyyy')}
+    </div>
+  </div>
+
+  <div style="display:flex;gap:16px;margin-bottom:24px">
+    <div style="flex:1;background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:16px;text-align:center">
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">This period</div>
+      <div style="font-size:24px;font-weight:700;color:#0f172a">${fmtHours(totalCurrent)}</div>
+    </div>
+    <div style="flex:1;background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:16px;text-align:center">
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Previous period</div>
+      <div style="font-size:24px;font-weight:700;color:#94a3b8">${fmtHours(totalPrev)}</div>
+    </div>
+  </div>
+
+  ${sectionsHtml}
+</div>
+</body>
+</html>`;
+}
+
 // ── Compute previous period from current range ─────────────────────────────
 function computePrevPeriod(currentStart: Date, currentEnd: Date): { prevStart: Date; prevEnd: Date } {
   const days = differenceInCalendarDays(currentEnd, currentStart) + 1;
@@ -302,6 +444,17 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ isOpen, on
     const a = document.createElement('a');
     a.href = url;
     a.download = `report-${fromISO}-to-${toISO}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadHtml = () => {
+    const html = generateHtmlReport(reports, currentStart, currentEnd, prevStart, prevEnd, tasks);
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `report-${fromISO}-to-${toISO}.html`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -495,7 +648,15 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ isOpen, on
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            Download .txt
+            .txt
+          </button>
+          <button onClick={handleDownloadHtml} disabled={reports.length === 0}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-blue-200 dark:border-blue-700 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-40">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            .html (có ảnh)
           </button>
           <button onClick={onClose}
             className="ml-auto px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors">

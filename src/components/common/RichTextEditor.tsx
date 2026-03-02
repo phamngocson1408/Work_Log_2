@@ -1,7 +1,8 @@
-import React, { useRef } from 'react';
+import React, { useRef, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
+import Image from '@tiptap/extension-image';
 
 interface RichTextEditorProps {
   value: string;
@@ -30,19 +31,29 @@ const ToolbarButton: React.FC<{
   </button>
 );
 
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   value,
   onChange,
   placeholder = 'Write something…',
   minHeight = 90,
 }) => {
-  // Track when update originates from the editor itself (vs. external prop change)
   const fromEditorRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
     extensions: [
       StarterKit,
       Placeholder.configure({ placeholder }),
+      Image.configure({ inline: false, allowBase64: true }),
     ],
     content: value,
     onUpdate: ({ editor }) => {
@@ -55,10 +66,50 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         class: 'rich-editor focus:outline-none',
         style: `min-height:${minHeight}px`,
       },
+      // Handle paste: intercept image files from clipboard
+      handlePaste: (view, event) => {
+        const items = event.clipboardData?.items;
+        if (!items) return false;
+        for (const item of Array.from(items)) {
+          if (item.type.startsWith('image/')) {
+            event.preventDefault();
+            const file = item.getAsFile();
+            if (!file) continue;
+            fileToBase64(file).then((src) => {
+              view.dispatch(
+                view.state.tr.replaceSelectionWith(
+                  view.state.schema.nodes.image
+                    ? view.state.schema.nodes.image.create({ src })
+                    : view.state.schema.text('')
+                )
+              );
+            });
+            return true;
+          }
+        }
+        return false;
+      },
+      // Handle drag-drop of image files
+      handleDrop: (view, event) => {
+        const files = event.dataTransfer?.files;
+        if (!files || files.length === 0) return false;
+        const imageFile = Array.from(files).find((f) => f.type.startsWith('image/'));
+        if (!imageFile) return false;
+        event.preventDefault();
+        const coords = { left: event.clientX, top: event.clientY };
+        const pos = view.posAtCoords(coords);
+        fileToBase64(imageFile).then((src) => {
+          const node = view.state.schema.nodes.image?.create({ src });
+          if (!node) return;
+          const transaction = view.state.tr.insert(pos?.pos ?? 0, node);
+          view.dispatch(transaction);
+        });
+        return true;
+      },
     },
   }, []);
 
-  // Sync external value changes (e.g. when modal re-opens with different content)
+  // Sync external value changes
   React.useEffect(() => {
     if (!editor) return;
     if (fromEditorRef.current) {
@@ -71,12 +122,28 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }
   }, [value, editor]);
 
+  const insertImageFromFile = useCallback(
+    async (file: File) => {
+      if (!editor) return;
+      const src = await fileToBase64(file);
+      editor.chain().focus().setImage({ src }).run();
+    },
+    [editor]
+  );
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) insertImageFromFile(file);
+    // Reset so the same file can be re-selected
+    e.target.value = '';
+  };
+
   if (!editor) return null;
 
   return (
     <div className="rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent">
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/60">
+      <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/60 flex-wrap">
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           active={editor.isActive('bold')}
@@ -132,6 +199,26 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         >
           "
         </ToolbarButton>
+
+        <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1" />
+
+        {/* Image upload button */}
+        <ToolbarButton
+          onClick={() => fileInputRef.current?.click()}
+          title="Insert image"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </ToolbarButton>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileChange}
+        />
       </div>
 
       {/* Editor */}
