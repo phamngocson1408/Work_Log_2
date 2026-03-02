@@ -10,6 +10,7 @@ export interface Task {
   parentId: string | null;
   orderIndex: number;
   isExpanded: boolean;
+  hidden: boolean;
   note: string;
 }
 

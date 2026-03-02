@@ -52,6 +52,7 @@ interface TaskNameCellProps {
   onAddSubtask: (pid: string) => void;
   dragHandleProps?: Record<string, unknown>;
   latestProgress: number | null;
+  isShowingHidden: boolean;
 }
 
 const TaskNameCell: React.FC<TaskNameCellProps> = ({
@@ -62,8 +63,9 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
   onAddSubtask,
   dragHandleProps,
   latestProgress,
+  isShowingHidden,
 }) => {
-  const { toggleExpanded, deleteTask, updateTask } = useTaskStore();
+  const { toggleExpanded, toggleHidden, deleteTask, updateTask } = useTaskStore();
   const [showMenu, setShowMenu] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
   const menuBtnRef = useRef<HTMLButtonElement>(null);
@@ -85,7 +87,11 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
 
   return (
     <div
-      className="sticky left-0 z-10 bg-white dark:bg-slate-900 border-r border-b border-slate-200 dark:border-slate-700 flex items-center gap-1 group shrink-0 select-none"
+      className={`sticky left-0 z-10 border-r border-b border-slate-200 dark:border-slate-700 flex items-center gap-1 group shrink-0 select-none ${
+        task.hidden && isShowingHidden
+          ? 'bg-slate-100 dark:bg-slate-800/60'
+          : 'bg-white dark:bg-slate-900'
+      }`}
       style={{ width: SIDEBAR_WIDTH, minWidth: SIDEBAR_WIDTH, height: ROW_HEIGHT, paddingLeft: depth * 16 + 4 }}
     >
       {/* Drag handle */}
@@ -118,7 +124,13 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
 
       {/* Title — click to edit */}
       <span
-        className={`flex-1 text-sm truncate cursor-pointer hover:underline underline-offset-2 ${task.status === 'completed' ? 'line-through text-slate-400 dark:text-slate-600' : 'text-slate-700 dark:text-slate-300'}`}
+        className={`flex-1 text-sm truncate cursor-pointer hover:underline underline-offset-2 ${
+          task.hidden && isShowingHidden
+            ? 'text-slate-400 dark:text-slate-600 italic'
+            : task.status === 'completed'
+            ? 'line-through text-slate-400 dark:text-slate-600'
+            : 'text-slate-700 dark:text-slate-300'
+        }`}
         title={`${task.title}${task.note ? '\n' + task.note : ''}`}
         onClick={(e) => { e.stopPropagation(); onEdit(task); }}
       >
@@ -159,6 +171,30 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
         )}
       </button>
 
+      {/* Eye toggle — always visible when hidden, hover-visible when not hidden */}
+      <button
+        onClick={(e) => { e.stopPropagation(); toggleHidden(task.id); }}
+        className={`shrink-0 p-0.5 rounded transition-all ${
+          task.hidden
+            ? 'text-amber-500 dark:text-amber-400 opacity-100'
+            : 'opacity-0 group-hover:opacity-60 hover:!opacity-100 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+        }`}
+        title={task.hidden ? 'Show task' : 'Hide task'}
+      >
+        {task.hidden ? (
+          // Eye-slash (hidden)
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+          </svg>
+        ) : (
+          // Eye (visible)
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+        )}
+      </button>
+
       {/* Context menu trigger */}
       <div className="shrink-0">
         <button
@@ -182,6 +218,7 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
           >
             <button onClick={() => { onEdit(task); setShowMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Edit</button>
             <button onClick={() => { onAddSubtask(task.id); setShowMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Add Subtask</button>
+            <button onClick={() => { toggleHidden(task.id); setShowMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">{task.hidden ? 'Show' : 'Hide'}</button>
             <div className="h-px bg-slate-100 dark:bg-slate-700 my-1" />
             <button onClick={() => { if (confirm(`Delete "${task.title}"?`)) deleteTask(task.id); setShowMenu(false); }} className="w-full text-left px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">Delete</button>
           </div>
@@ -202,9 +239,10 @@ interface SortableRowProps {
   onAddSubtask: (pid: string) => void;
   children: React.ReactNode;
   latestProgress: number | null;
+  isShowingHidden: boolean;
 }
 
-const SortableRow: React.FC<SortableRowProps> = ({ task, depth, hasChildren, onEdit, onAddSubtask, children, latestProgress }) => {
+const SortableRow: React.FC<SortableRowProps> = ({ task, depth, hasChildren, onEdit, onAddSubtask, children, latestProgress, isShowingHidden }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
   return (
     <div
@@ -214,7 +252,7 @@ const SortableRow: React.FC<SortableRowProps> = ({ task, depth, hasChildren, onE
         height: ROW_HEIGHT,
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.5 : 1,
+        opacity: isDragging ? 0.5 : task.hidden && isShowingHidden ? 0.55 : 1,
       }}
     >
       <TaskNameCell
@@ -225,6 +263,7 @@ const SortableRow: React.FC<SortableRowProps> = ({ task, depth, hasChildren, onE
         onAddSubtask={onAddSubtask}
         dragHandleProps={{ ...attributes, ...listeners }}
         latestProgress={latestProgress}
+        isShowingHidden={isShowingHidden}
       />
       {children}
     </div>
@@ -307,12 +346,14 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
   onOpenLogModal, onEditLog, onEditTask, onAddSubtask, onAddTask,
   onCopyLog, copiedLog, onPasteLog,
 }) => {
-  const { tasks, getFlatList, reorderTasks } = useTaskStore();
+  const { tasks, getFlatList, reorderTasks, setAllHidden } = useTaskStore();
   const { slotDuration, viewMode, currentDate, setCurrentDate, setViewMode, todayScrollTrigger } = useSettingsStore();
   const logs = useTimeLogStore((s) => s.logs);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const visibleTasks = getFlatList();
+  const [showHiddenTasks, setShowHiddenTasks] = useState(false);
+  const visibleTasks = getFlatList(showHiddenTasks);
+  const hiddenTasksCount = tasks.filter((t) => t.hidden).length;
 
   const [pasteMenu, setPasteMenu] = useState<{
     x: number; y: number; taskId: string; dayISO: string; slotIndex: number;
@@ -470,7 +511,19 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
             d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
-        <p className="text-sm">No tasks yet. Add a task to get started.</p>
+        {hiddenTasksCount > 0 ? (
+          <>
+            <p className="text-sm">All tasks are hidden.</p>
+            <button
+              onClick={() => setAllHidden(false)}
+              className="text-xs px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+            >
+              Show All Tasks
+            </button>
+          </>
+        ) : (
+          <p className="text-sm">No tasks yet. Add a task to get started.</p>
+        )}
       </div>
     );
   }
@@ -495,16 +548,69 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
             style={{ width: SIDEBAR_WIDTH, minWidth: SIDEBAR_WIDTH, height: HEADER_HEIGHT }}
           >
             <span className="text-xs font-medium text-slate-400 dark:text-slate-500">Tasks</span>
-            <button
-              onClick={onAddTask}
-              className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors"
-              title="Add task"
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Task
-            </button>
+            <div className="flex items-center gap-1">
+              {/* Show/hide hidden tasks toggle */}
+              {hiddenTasksCount > 0 && (
+                <button
+                  onClick={() => setShowHiddenTasks((v) => !v)}
+                  className={`relative flex items-center justify-center w-6 h-6 rounded transition-colors ${
+                    showHiddenTasks
+                      ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
+                      : 'text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-300'
+                  }`}
+                  title={showHiddenTasks ? `Hide the ${hiddenTasksCount} hidden task(s)` : `Show ${hiddenTasksCount} hidden task(s)`}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {showHiddenTasks ? (
+                      <>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </>
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                    )}
+                  </svg>
+                  <span className="absolute -top-1 -right-1 text-[8px] font-bold bg-amber-500 text-white rounded-full w-3 h-3 flex items-center justify-center leading-none">
+                    {hiddenTasksCount}
+                  </span>
+                </button>
+              )}
+              {/* Show All button (only when some hidden tasks exist and not already showing) */}
+              {hiddenTasksCount > 0 && (
+                <button
+                  onClick={() => setAllHidden(false)}
+                  className="flex items-center justify-center w-6 h-6 rounded text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                  title="Show all tasks"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                  </svg>
+                </button>
+              )}
+              {/* Hide All button */}
+              {visibleTasks.some((t) => !t.hidden) && (
+                <button
+                  onClick={() => setAllHidden(true)}
+                  className="flex items-center justify-center w-6 h-6 rounded text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                  title="Hide all tasks"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+              {/* Add Task button */}
+              <button
+                onClick={onAddTask}
+                className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors"
+                title="Add task"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add Task
+              </button>
+            </div>
           </div>
 
           {/* ── Hour view: time labels ── */}
@@ -668,6 +774,7 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                   onEdit={onEditTask}
                   onAddSubtask={onAddSubtask}
                   latestProgress={latestProgress}
+                  isShowingHidden={showHiddenTasks}
                 >
                   {/* ── Hour view ── */}
                   {viewMode === 'hour' && (

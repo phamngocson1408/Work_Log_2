@@ -13,6 +13,7 @@ function rowToTask(row: Record<string, unknown>): Task {
     parentId: (row.parent_id as string | null) ?? null,
     orderIndex: row.order_index as number,
     isExpanded: row.is_expanded as boolean,
+    hidden: (row.hidden as boolean) ?? false,
     note: (row.note as string) ?? '',
   };
 }
@@ -27,6 +28,7 @@ function taskToRow(t: Task) {
     parent_id: t.parentId,
     order_index: t.orderIndex,
     is_expanded: t.isExpanded,
+    hidden: t.hidden,
     note: t.note,
   };
 }
@@ -40,8 +42,10 @@ interface TaskState {
   deleteTask: (id: string) => void;
   reorderTasks: (orderedIds: string[]) => void;
   toggleExpanded: (id: string) => void;
+  toggleHidden: (id: string) => void;
+  setAllHidden: (hidden: boolean) => void;
   getChildren: (parentId: string | null) => Task[];
-  getFlatList: () => Task[];
+  getFlatList: (showHidden?: boolean) => Task[];
 }
 
 export const useTaskStore = create<TaskState>((set, get) => ({
@@ -68,6 +72,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       parentId,
       orderIndex: maxIndex + 1,
       isExpanded: true,
+      hidden: false,
       note: '',
     };
 
@@ -103,6 +108,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     if (updates.parentId !== undefined) dbUpdates.parent_id = updates.parentId;
     if (updates.orderIndex !== undefined) dbUpdates.order_index = updates.orderIndex;
     if (updates.isExpanded !== undefined) dbUpdates.is_expanded = updates.isExpanded;
+    if (updates.hidden !== undefined) dbUpdates.hidden = updates.hidden;
     if (updates.note !== undefined) dbUpdates.note = updates.note;
 
     supabase.from('tasks').update(dbUpdates).eq('id', id).then(({ error }) => {
@@ -178,13 +184,45 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     });
   },
 
+  toggleHidden: (id) => {
+    const task = get().tasks.find((t) => t.id === id);
+    if (!task) return;
+    const newVal = !task.hidden;
+
+    // Optimistic update
+    set((s) => ({
+      tasks: s.tasks.map((t) => (t.id === id ? { ...t, hidden: newVal } : t)),
+    }));
+
+    // Sync to DB
+    supabase.from('tasks').update({ hidden: newVal }).eq('id', id).then(({ error }) => {
+      if (error) {
+        set((s) => ({
+          tasks: s.tasks.map((t) => (t.id === id ? { ...t, hidden: !newVal } : t)),
+        }));
+        console.error('toggleHidden error:', error.message);
+      }
+    });
+  },
+
+  setAllHidden: (hidden) => {
+    const prev = get().tasks;
+    set((s) => ({ tasks: s.tasks.map((t) => ({ ...t, hidden })) }));
+    supabase.from('tasks').update({ hidden }).not('id', 'is', null).then(({ error }) => {
+      if (error) {
+        set({ tasks: prev });
+        console.error('setAllHidden error:', error.message);
+      }
+    });
+  },
+
   getChildren: (parentId) => {
     return get()
       .tasks.filter((t) => t.parentId === parentId)
       .sort((a, b) => a.orderIndex - b.orderIndex);
   },
 
-  getFlatList: () => {
+  getFlatList: (showHidden = false) => {
     const { tasks } = get();
     const buildVisible = (parentId: string | null): Task[] => {
       const children = tasks
@@ -192,6 +230,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         .sort((a, b) => a.orderIndex - b.orderIndex);
       const result: Task[] = [];
       for (const child of children) {
+        if (!showHidden && child.hidden) continue;
         result.push(child);
         if (child.isExpanded) result.push(...buildVisible(child.id));
       }
