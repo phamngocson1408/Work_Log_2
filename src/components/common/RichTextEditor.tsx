@@ -1,8 +1,9 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from '@tiptap/extension-image';
+import { uploadImage } from '../../lib/uploadImage';
 
 interface RichTextEditorProps {
   value: string;
@@ -31,15 +32,6 @@ const ToolbarButton: React.FC<{
   </button>
 );
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   value,
   onChange,
@@ -48,6 +40,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 }) => {
   const fromEditorRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -75,7 +68,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
             event.preventDefault();
             const file = item.getAsFile();
             if (!file) continue;
-            fileToBase64(file).then((src) => {
+            setUploading(true);
+            uploadImage(file).then((src) => {
               view.dispatch(
                 view.state.tr.replaceSelectionWith(
                   view.state.schema.nodes.image
@@ -83,7 +77,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                     : view.state.schema.text('')
                 )
               );
-            });
+            }).finally(() => setUploading(false));
             return true;
           }
         }
@@ -98,19 +92,20 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         event.preventDefault();
         const coords = { left: event.clientX, top: event.clientY };
         const pos = view.posAtCoords(coords);
-        fileToBase64(imageFile).then((src) => {
+        setUploading(true);
+        uploadImage(imageFile).then((src) => {
           const node = view.state.schema.nodes.image?.create({ src });
           if (!node) return;
           const transaction = view.state.tr.insert(pos?.pos ?? 0, node);
           view.dispatch(transaction);
-        });
+        }).finally(() => setUploading(false));
         return true;
       },
     },
   }, []);
 
   // Sync external value changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (!editor) return;
     if (fromEditorRef.current) {
       fromEditorRef.current = false;
@@ -125,8 +120,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const insertImageFromFile = useCallback(
     async (file: File) => {
       if (!editor) return;
-      const src = await fileToBase64(file);
-      editor.chain().focus().setImage({ src }).run();
+      setUploading(true);
+      try {
+        const src = await uploadImage(file);
+        editor.chain().focus().setImage({ src }).run();
+      } finally {
+        setUploading(false);
+      }
     },
     [editor]
   );
@@ -207,10 +207,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           onClick={() => fileInputRef.current?.click()}
           title="Insert image"
         >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
+          {uploading ? (
+            <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          )}
         </ToolbarButton>
         <input
           ref={fileInputRef}
