@@ -297,13 +297,14 @@ interface TimelineGridProps {
   onEditLog: (log: TimeLog) => void;
   onEditTask: (task: Task) => void;
   onAddSubtask: (parentId: string) => void;
+  onAddTask: () => void;
   onCopyLog: (log: TimeLog) => void;
   copiedLog: TimeLog | null;
   onPasteLog: (taskId: string, dayISO: string, startSlot: number, endSlot: number) => void;
 }
 
 export const TimelineGrid: React.FC<TimelineGridProps> = ({
-  onOpenLogModal, onEditLog, onEditTask, onAddSubtask,
+  onOpenLogModal, onEditLog, onEditTask, onAddSubtask, onAddTask,
   onCopyLog, copiedLog, onPasteLog,
 }) => {
   const { tasks, getFlatList, reorderTasks } = useTaskStore();
@@ -490,10 +491,20 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
         >
           {/* Corner — sticky left + top */}
           <div
-            className="sticky left-0 z-30 bg-slate-50 dark:bg-slate-900 border-r border-b border-slate-200 dark:border-slate-700 flex items-center px-3 shrink-0"
+            className="sticky left-0 z-30 bg-slate-50 dark:bg-slate-900 border-r border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-3 shrink-0"
             style={{ width: SIDEBAR_WIDTH, minWidth: SIDEBAR_WIDTH, height: HEADER_HEIGHT }}
           >
             <span className="text-xs font-medium text-slate-400 dark:text-slate-500">Tasks</span>
+            <button
+              onClick={onAddTask}
+              className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors"
+              title="Add task"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Task
+            </button>
           </div>
 
           {/* ── Hour view: time labels ── */}

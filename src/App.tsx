@@ -4,6 +4,7 @@ import { AppHeader } from './components/layout/AppHeader';
 import { TimelineGrid } from './components/timeline/TimelineGrid';
 import { TaskModal } from './components/modals/TaskModal';
 import { LogModal, type LogModalConfig } from './components/modals/LogModal';
+import { WeeklyReportModal } from './components/modals/WeeklyReportModal';
 import { useSettingsStore } from './store/settingsStore';
 import { useTaskStore } from './store/taskStore';
 import { useTimeLogStore } from './store/timeLogStore';
@@ -13,6 +14,7 @@ import type { Task, TimeLog } from './types';
 export default function App() {
   const darkMode = useSettingsStore((s) => s.darkMode);
   const slotDuration = useSettingsStore((s) => s.slotDuration);
+  const currentDate = useSettingsStore((s) => s.currentDate);
   const taskLoading = useTaskStore((s) => s.loading);
   const logLoading = useTimeLogStore((s) => s.loading);
   const initTasks = useTaskStore((s) => s.init);
@@ -33,6 +35,9 @@ export default function App() {
   // ── Log modal state ───────────────────────────────────────────────────────
   const [logModalConfig, setLogModalConfig] = useState<LogModalConfig | null>(null);
   const [copiedLog, setCopiedLog] = useState<import('./types').TimeLog | null>(null);
+
+  // ── Weekly report modal state ─────────────────────────────────────────────
+  const [reportOpen, setReportOpen] = useState(false);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -104,7 +109,7 @@ export default function App() {
 
   return (
     <div className={`h-screen flex flex-col overflow-hidden ${darkMode ? 'dark bg-slate-900' : 'bg-slate-50'}`}>
-      <AppHeader onAddTask={handleAddTask} />
+      <AppHeader onExportReport={() => setReportOpen(true)} />
 
       <main className="flex-1 overflow-hidden flex flex-col">
         <TimelineGrid
@@ -112,6 +117,7 @@ export default function App() {
           onEditLog={handleEditLog}
           onEditTask={handleEditTask}
           onAddSubtask={handleAddSubtask}
+          onAddTask={handleAddTask}
           onCopyLog={handleCopyLog}
           copiedLog={copiedLog}
           onPasteLog={handlePasteLog}
@@ -129,6 +135,12 @@ export default function App() {
       <LogModal
         config={logModalConfig}
         onClose={handleCloseLogModal}
+      />
+
+      <WeeklyReportModal
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+        todayISO={currentDate}
       />
     </div>
   );
