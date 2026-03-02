@@ -24,6 +24,12 @@ interface LogModalProps {
   onClose: () => void;
 }
 
+function getLatestProgress(logs: TimeLog[], taskId: string): number | null {
+  return logs
+    .filter((l) => l.taskId === taskId && l.progress !== null)
+    .sort((a, b) => b.startTime.localeCompare(a.startTime))[0]?.progress ?? null;
+}
+
 export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
   const { addLog, updateLog, deleteLog, findConflicts, logs } = useTimeLogStore();
   const { tasks } = useTaskStore();
@@ -66,7 +72,7 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
       setStartTime(format(start, "yyyy-MM-dd'T'HH:mm"));
       setEndTime(format(end, "yyyy-MM-dd'T'HH:mm"));
       setTaskId(config.taskId);
-      setProgress(null);
+      setProgress(getLatestProgress(logs, config.taskId));
     }
 
     setConflictAction(null);
@@ -227,7 +233,10 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
                 </label>
                 <select
                   value={taskId}
-                  onChange={(e) => setTaskId(e.target.value)}
+                  onChange={(e) => {
+                    setTaskId(e.target.value);
+                    setProgress(getLatestProgress(logs, e.target.value));
+                  }}
                   className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700"
                   required
                 >
