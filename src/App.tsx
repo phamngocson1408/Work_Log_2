@@ -28,6 +28,7 @@ export default function App() {
 
   // ── Log modal state ───────────────────────────────────────────────────────
   const [logModalConfig, setLogModalConfig] = useState<LogModalConfig | null>(null);
+  const [copiedLog, setCopiedLog] = useState<import('./types').TimeLog | null>(null);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -59,6 +60,17 @@ export default function App() {
   const handleEditLog = useCallback((log: TimeLog) => {
     setLogModalConfig({ log });
   }, []);
+
+  const handleCopyLog = useCallback((log: TimeLog) => {
+    setCopiedLog(log);
+  }, []);
+
+  const handlePasteLog = useCallback(
+    (taskId: string, dayISO: string, startSlot: number, endSlot: number) => {
+      setLogModalConfig({ taskId, dayISO, startSlot, endSlot, initialContent: copiedLog?.content });
+    },
+    [copiedLog]
+  );
 
   const handleCloseTaskModal = () => {
     setTaskModalOpen(false);
@@ -92,6 +104,9 @@ export default function App() {
           onEditLog={handleEditLog}
           onEditTask={handleEditTask}
           onAddSubtask={handleAddSubtask}
+          onCopyLog={handleCopyLog}
+          copiedLog={copiedLog}
+          onPasteLog={handlePasteLog}
         />
       </main>
 

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import { parseISO, addMinutes, format, areIntervalsOverlapping } from 'date-fns';
 import type { TimeLog, Task } from '../../types';
 import { formatTime, durationLabel, getSlotWidth } from '../../utils/timeUtils';
@@ -15,15 +16,16 @@ interface LogBlockProps {
   width: number;
   rowHeight: number;
   onClick: (log: TimeLog) => void;
+  onCopy: (log: TimeLog) => void;
 }
 
 const HANDLE_W = 7;
 const ISO_FMT = "yyyy-MM-dd'T'HH:mm";
 
 export const LogBlock: React.FC<LogBlockProps> = ({
-  log, task, left, width, rowHeight, onClick,
+  log, task, left, width, rowHeight, onClick, onCopy,
 }) => {
-  const { updateLog, logs } = useTimeLogStore();
+  const { updateLog, deleteLog, logs } = useTimeLogStore();
   const { tasks } = useTaskStore();
   const { slotDuration } = useSettingsStore();
   const slotW = getSlotWidth(slotDuration);
@@ -48,6 +50,7 @@ export const LogBlock: React.FC<LogBlockProps> = ({
 
   const blockRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
   const [resizing, setResizing] = useState<{ edge: 'left' | 'right'; startX: number } | null>(null);
   const [previewLeft, setPreviewLeft] = useState<number | null>(null);
   const [previewWidth, setPreviewWidth] = useState<number | null>(null);
@@ -144,6 +147,13 @@ export const LogBlock: React.FC<LogBlockProps> = ({
     setTooltip({ x: rect.left + rect.width / 2, y: rect.top });
   };
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setTooltip(null);
+    setCtxMenu({ x: e.clientX, y: e.clientY });
+  };
+
   return (
     <>
       <div
@@ -164,8 +174,10 @@ export const LogBlock: React.FC<LogBlockProps> = ({
         onClick={(e) => {
           e.stopPropagation();
           if (didDragRef.current) { didDragRef.current = false; return; }
+          if (ctxMenu) { setCtxMenu(null); return; }
           onClick(log);
         }}
+        onContextMenu={handleContextMenu}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={() => { if (!resizing) setTooltip(null); }}
       >
@@ -210,6 +222,38 @@ export const LogBlock: React.FC<LogBlockProps> = ({
       {/* Live time label while resizing — anchored to block via blockRef */}
       {resizing && liveLabel && (
         <LiveLabel blockRef={blockRef} label={liveLabel} />
+      )}
+
+      {/* Right-click context menu */}
+      {ctxMenu && ReactDOM.createPortal(
+        <>
+          <div className="fixed inset-0 z-[200]" onClick={() => setCtxMenu(null)} onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null); }} />
+          <div
+            className="fixed z-[201] bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 w-36"
+            style={{ top: ctxMenu.y, left: ctxMenu.x }}
+          >
+            <button
+              onClick={() => { onClick(log); setCtxMenu(null); }}
+              className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => { onCopy(log); setCtxMenu(null); }}
+              className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+            >
+              Copy
+            </button>
+            <div className="h-px bg-slate-100 dark:bg-slate-700 my-1" />
+            <button
+              onClick={() => { if (confirm('Delete this log entry?')) deleteLog(log.id); setCtxMenu(null); }}
+              className="w-full text-left px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+            >
+              Delete
+            </button>
+          </div>
+        </>,
+        document.body
       )}
 
       {/* Hover tooltip */}

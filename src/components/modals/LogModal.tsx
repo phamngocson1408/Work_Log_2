@@ -15,6 +15,8 @@ export interface LogModalConfig {
   dayISO?: string;
   startSlot?: number;
   endSlot?: number;
+  /** Pre-fill content when pasting a copied log */
+  initialContent?: string;
 }
 
 interface LogModalProps {
@@ -58,7 +60,7 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
         slotIndexToDate(day, config.endSlot, slotDuration),
         slotDuration
       );
-      setContent('');
+      setContent(config.initialContent ?? '');
       setStartTime(format(start, "yyyy-MM-dd'T'HH:mm"));
       setEndTime(format(end, "yyyy-MM-dd'T'HH:mm"));
       setTaskId(config.taskId);

@@ -231,11 +231,14 @@ interface HourContentProps {
   onSlotMouseDown: (taskId: string, dayISO: string, slotIndex: number) => void;
   onSlotMouseEnter: (taskId: string, dayISO: string, slotIndex: number) => void;
   onLogClick: (log: TimeLog) => void;
+  onLogCopy: (log: TimeLog) => void;
+  onSlotContextMenu: ((x: number, y: number, taskId: string, dayISO: string, slotIndex: number) => void) | null;
 }
 
 const HourContent: React.FC<HourContentProps> = ({
   task, dayDate, dayISO, logs, slots, slotWidth, slotDuration,
   getSelectionForCell, onSlotMouseDown, onSlotMouseEnter, onLogClick,
+  onLogCopy, onSlotContextMenu,
 }) => {
   const totalWidth = slots.length * slotWidth;
   return (
@@ -254,6 +257,11 @@ const HourContent: React.FC<HourContentProps> = ({
             style={{ width: slotWidth }}
             onMouseDown={(e) => { e.preventDefault(); onSlotMouseDown(task.id, dayISO, slot.index); }}
             onMouseEnter={() => onSlotMouseEnter(task.id, dayISO, slot.index)}
+            onContextMenu={(e) => {
+              if (!onSlotContextMenu) return;
+              e.preventDefault();
+              onSlotContextMenu(e.clientX, e.clientY, task.id, dayISO, slot.index);
+            }}
           />
         );
       })}
@@ -261,7 +269,7 @@ const HourContent: React.FC<HourContentProps> = ({
         const geo = getLogBlockGeometry(parseISO(log.startTime), parseISO(log.endTime), dayDate, slotDuration);
         if (!geo) return null;
         return (
-          <LogBlock key={log.id} log={log} task={task} left={geo.left} width={geo.width} rowHeight={ROW_HEIGHT} onClick={onLogClick} />
+          <LogBlock key={log.id} log={log} task={task} left={geo.left} width={geo.width} rowHeight={ROW_HEIGHT} onClick={onLogClick} onCopy={onLogCopy} />
         );
       })}
     </div>
@@ -275,10 +283,14 @@ interface TimelineGridProps {
   onEditLog: (log: TimeLog) => void;
   onEditTask: (task: Task) => void;
   onAddSubtask: (parentId: string) => void;
+  onCopyLog: (log: TimeLog) => void;
+  copiedLog: TimeLog | null;
+  onPasteLog: (taskId: string, dayISO: string, startSlot: number, endSlot: number) => void;
 }
 
 export const TimelineGrid: React.FC<TimelineGridProps> = ({
   onOpenLogModal, onEditLog, onEditTask, onAddSubtask,
+  onCopyLog, copiedLog, onPasteLog,
 }) => {
   const { tasks, getFlatList, reorderTasks } = useTaskStore();
   const { slotDuration, viewMode, currentDate, setCurrentDate, setViewMode, todayScrollTrigger } = useSettingsStore();
@@ -286,6 +298,10 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const visibleTasks = getFlatList();
+
+  const [pasteMenu, setPasteMenu] = useState<{
+    x: number; y: number; taskId: string; dayISO: string; slotIndex: number;
+  } | null>(null);
 
   const todayISO = format(new Date(), 'yyyy-MM-dd');
   const currentYear = parseISO(currentDate).getFullYear();
@@ -636,6 +652,8 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                       onSlotMouseDown={onSlotMouseDown}
                       onSlotMouseEnter={onSlotMouseEnter}
                       onLogClick={onEditLog}
+                      onLogCopy={onCopyLog}
+                      onSlotContextMenu={copiedLog ? (x, y, taskId, dayISO, slotIndex) => setPasteMenu({ x, y, taskId, dayISO, slotIndex }) : null}
                     />
                   )}
 
@@ -774,6 +792,33 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
           <NowLine slotDuration={slotDuration} currentDate={currentDate} offsetLeft={SIDEBAR_WIDTH} />
         )}
       </div>
+
+      {/* Paste context menu */}
+      {pasteMenu && copiedLog && ReactDOM.createPortal(
+        <>
+          <div className="fixed inset-0 z-[200]" onClick={() => setPasteMenu(null)} onContextMenu={(e) => { e.preventDefault(); setPasteMenu(null); }} />
+          <div
+            className="fixed z-[201] bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 w-36"
+            style={{ top: pasteMenu.y, left: pasteMenu.x }}
+          >
+            <button
+              onClick={() => {
+                const durationMin = differenceInMinutes(
+                  parseISO(copiedLog.endTime),
+                  parseISO(copiedLog.startTime)
+                );
+                const spanSlots = Math.max(1, Math.ceil(durationMin / slotDuration));
+                onPasteLog(pasteMenu.taskId, pasteMenu.dayISO, pasteMenu.slotIndex, pasteMenu.slotIndex + spanSlots - 1);
+                setPasteMenu(null);
+              }}
+              className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+            >
+              Paste here
+            </button>
+          </div>
+        </>,
+        document.body
+      )}
     </div>
   );
 };
