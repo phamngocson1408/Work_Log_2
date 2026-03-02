@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { parseISO, addMinutes, format } from 'date-fns';
 import { AppHeader } from './components/layout/AppHeader';
 import { TimelineGrid } from './components/timeline/TimelineGrid';
 import { TaskModal } from './components/modals/TaskModal';
@@ -6,14 +7,17 @@ import { LogModal, type LogModalConfig } from './components/modals/LogModal';
 import { useSettingsStore } from './store/settingsStore';
 import { useTaskStore } from './store/taskStore';
 import { useTimeLogStore } from './store/timeLogStore';
+import { slotIndexToDate } from './utils/timeUtils';
 import type { Task, TimeLog } from './types';
 
 export default function App() {
   const darkMode = useSettingsStore((s) => s.darkMode);
+  const slotDuration = useSettingsStore((s) => s.slotDuration);
   const taskLoading = useTaskStore((s) => s.loading);
   const logLoading = useTimeLogStore((s) => s.loading);
   const initTasks = useTaskStore((s) => s.init);
   const initLogs = useTimeLogStore((s) => s.init);
+  const addLog = useTimeLogStore((s) => s.addLog);
 
   // ── Load data from Supabase on mount ──────────────────────────────────────
   useEffect(() => {
@@ -67,9 +71,13 @@ export default function App() {
 
   const handlePasteLog = useCallback(
     (taskId: string, dayISO: string, startSlot: number, endSlot: number) => {
-      setLogModalConfig({ taskId, dayISO, startSlot, endSlot, initialContent: copiedLog?.content });
+      if (!copiedLog) return;
+      const day = parseISO(dayISO);
+      const startTime = format(slotIndexToDate(day, startSlot, slotDuration), "yyyy-MM-dd'T'HH:mm");
+      const endTime = format(addMinutes(slotIndexToDate(day, endSlot, slotDuration), slotDuration), "yyyy-MM-dd'T'HH:mm");
+      addLog({ taskId, startTime, endTime, content: copiedLog.content });
     },
-    [copiedLog]
+    [copiedLog, slotDuration, addLog]
   );
 
   const handleCloseTaskModal = () => {
