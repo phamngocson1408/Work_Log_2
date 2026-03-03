@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Task } from '../../types';
 import { useTaskStore } from '../../store/taskStore';
+import { useChecklistStore } from '../../store/checklistStore';
 
 const STATUS_LABELS: Record<Task['status'], string> = {
   not_started: 'Not Started',
@@ -32,7 +33,13 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   dragHandleProps,
 }) => {
   const { toggleExpanded, deleteTask, updateTask } = useTaskStore();
+  const checklistItems = useChecklistStore((s) =>
+    s.items.filter((i) => i.taskId === task.id).sort((a, b) => a.orderIndex - b.orderIndex)
+  );
   const [showMenu, setShowMenu] = useState(false);
+
+  const checklistTotal = checklistItems.length;
+  const checklistDone = checklistItems.filter((i) => i.done).length;
 
   const cycleStatus = () => {
     const statuses: Task['status'][] = ['not_started', 'in_progress', 'completed'];
@@ -87,13 +94,27 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
       {/* Title */}
       <span
-        className={`flex-1 text-sm truncate ${
+        className={`flex-1 text-sm truncate min-w-0 ${
           task.status === 'completed' ? 'line-through text-slate-400' : 'text-slate-700'
         }`}
         title={task.title}
       >
         {task.title}
       </span>
+
+      {/* Checklist count badge */}
+      {checklistTotal > 0 && (
+        <span
+          className={`flex-shrink-0 text-xs px-1 py-0.5 rounded font-medium leading-none ${
+            checklistDone === checklistTotal
+              ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+              : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
+          }`}
+          title={`Checklist: ${checklistDone}/${checklistTotal} done`}
+        >
+          {checklistDone}/{checklistTotal}
+        </span>
+      )}
 
       {/* Status badge */}
       <button

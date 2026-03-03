@@ -22,6 +22,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useTaskStore } from '../../store/taskStore';
 import { useTimeLogStore } from '../../store/timeLogStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useChecklistStore } from '../../store/checklistStore';
 import { LogBlock } from './LogBlock';
 import { useTimelineSelection, type SelectionRange } from '../../hooks/useTimelineSelection';
 import {
@@ -37,7 +38,8 @@ import {
 } from '../../utils/timeUtils';
 import type { Task, TimeLog, SlotDuration } from '../../types';
 
-const SIDEBAR_WIDTH = 280;
+const SIDEBAR_MIN_WIDTH = 160;
+const SIDEBAR_MAX_WIDTH = 520;
 const ROW_HEIGHT = 40;
 const HEADER_HEIGHT = 40;
 const DAY_VIEW_COL_W = 44;   // px per column in Day view
@@ -68,6 +70,12 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
   isShowingHidden,
 }) => {
   const { toggleExpanded, toggleHidden, deleteTask, updateTask } = useTaskStore();
+  const sidebarWidth = useSettingsStore((s) => s.sidebarWidth);
+  const checklistItems = useChecklistStore((s) =>
+    s.items.filter((i) => i.taskId === task.id)
+  );
+  const checklistTotal = checklistItems.length;
+  const checklistDone = checklistItems.filter((i) => i.done).length;
   const [showMenu, setShowMenu] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
   const menuBtnRef = useRef<HTMLButtonElement>(null);
@@ -94,7 +102,7 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
           ? 'bg-slate-100 dark:bg-slate-800/60'
           : 'bg-white dark:bg-slate-900'
       }`}
-      style={{ width: SIDEBAR_WIDTH, minWidth: SIDEBAR_WIDTH, height: ROW_HEIGHT, paddingLeft: depth * 16 + 4 }}
+      style={{ width: sidebarWidth, minWidth: sidebarWidth, height: ROW_HEIGHT, paddingLeft: depth * 16 + 4 }}
     >
       {/* Drag handle */}
       <button
@@ -138,6 +146,20 @@ const TaskNameCell: React.FC<TaskNameCellProps> = ({
       >
         {task.title}
       </span>
+
+      {/* Checklist count badge */}
+      {checklistTotal > 0 && (
+        <span
+          className={`shrink-0 text-[10px] font-semibold tabular-nums px-1 py-0.5 rounded leading-none ${
+            checklistDone === checklistTotal
+              ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+              : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
+          }`}
+          title={`Checklist: ${checklistDone}/${checklistTotal} done`}
+        >
+          {checklistDone}/{checklistTotal}
+        </span>
+      )}
 
       {/* Progress badge */}
       {latestProgress !== null && (
@@ -349,8 +371,9 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
   onCopyLog, copiedLog, onPasteLog,
 }) => {
   const { tasks, getFlatList, reorderTasks, setAllHidden } = useTaskStore();
-  const { slotDuration, viewMode, currentDate, setCurrentDate, setViewMode, todayScrollTrigger } = useSettingsStore();
+  const { slotDuration, viewMode, currentDate, setCurrentDate, setViewMode, todayScrollTrigger, sidebarWidth, setSidebarWidth } = useSettingsStore();
   const logs = useTimeLogStore((s) => s.logs);
+  const deadlineItems = useChecklistStore((s) => s.items.filter((i) => i.deadline !== null && !i.done));
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showHiddenTasks, setShowHiddenTasks] = useState(false);
@@ -545,10 +568,10 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
 
   // ── Content dimensions ────────────────────────────────────────────────────
   const contentWidth =
-    viewMode === 'hour' ? SIDEBAR_WIDTH + dayTotalWidth :
-    viewMode === 'day' ? SIDEBAR_WIDTH + allDays.length * DAY_VIEW_COL_W :
-    viewMode === 'week' ? SIDEBAR_WIDTH + allWeeks.length * WEEK_VIEW_COL_W :
-    SIDEBAR_WIDTH + allMonths.length * MONTH_VIEW_COL_W;
+    viewMode === 'hour' ? sidebarWidth + dayTotalWidth :
+    viewMode === 'day' ? sidebarWidth + allDays.length * DAY_VIEW_COL_W :
+    viewMode === 'week' ? sidebarWidth + allWeeks.length * WEEK_VIEW_COL_W :
+    sidebarWidth + allMonths.length * MONTH_VIEW_COL_W;
 
   // ── Empty state ───────────────────────────────────────────────────────────
   if (visibleTasks.length === 0) {
@@ -591,8 +614,8 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
         >
           {/* Corner — sticky left + top */}
           <div
-            className="sticky left-0 z-30 bg-slate-50 dark:bg-slate-900 border-r border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-3 shrink-0"
-            style={{ width: SIDEBAR_WIDTH, minWidth: SIDEBAR_WIDTH, height: HEADER_HEIGHT }}
+            className="sticky left-0 z-30 relative bg-slate-50 dark:bg-slate-900 border-r border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-3 shrink-0"
+            style={{ width: sidebarWidth, minWidth: sidebarWidth, height: HEADER_HEIGHT }}
           >
             <span className="text-xs font-medium text-slate-400 dark:text-slate-500">Tasks</span>
             <div className="flex items-center gap-1">
@@ -658,6 +681,27 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                 Add Task
               </button>
             </div>
+
+            {/* Resize handle */}
+            <div
+              className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 dark:hover:bg-blue-500 z-10 transition-colors"
+              title="Drag to resize task column"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                const startX = e.clientX;
+                const startWidth = sidebarWidth;
+                const onMove = (ev: MouseEvent) => {
+                  const newWidth = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, startWidth + ev.clientX - startX));
+                  setSidebarWidth(newWidth);
+                };
+                const onUp = () => {
+                  window.removeEventListener('mousemove', onMove);
+                  window.removeEventListener('mouseup', onUp);
+                };
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp);
+              }}
+            />
           </div>
 
           {/* ── Hour view: time labels ── */}
@@ -851,6 +895,8 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                         const isToday = dayISO === todayISO;
                         const mins = logTotals.byDay[task.id]?.[dayISO] || 0;
                         const fill = Math.min(mins / (8 * 60), 1);
+                        const dayDeadlines = deadlineItems.filter((i) => i.taskId === task.id && i.deadline === dayISO);
+                        const isOverdue = dayISO < todayISO;
                         return (
                           <div
                             key={dayISO}
@@ -862,7 +908,7 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                             `}
                             style={{ width: DAY_VIEW_COL_W, height: ROW_HEIGHT }}
                             onClick={() => { setCurrentDate(dayISO); setViewMode('hour'); }}
-                            title={`${task.title} · ${format(day, 'EEE, MMM d')}: ${Math.round(mins / 60 * 10) / 10}h`}
+                            title={`${task.title} · ${format(day, 'EEE, MMM d')}: ${Math.round(mins / 60 * 10) / 10}h${dayDeadlines.length > 0 ? '\n⚑ ' + dayDeadlines.map((i) => i.text).join('\n⚑ ') : ''}`}
                           >
                             {mins > 0 && (
                               <div
@@ -882,6 +928,17 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                                 {mins < 60 ? `${Math.round(mins)}m` : `${Math.round(mins / 60)}h`}
                               </span>
                             )}
+                            {/* Deadline flag */}
+                            {dayDeadlines.length > 0 && (
+                              <div className="absolute top-0.5 right-0.5 flex flex-col gap-0.5 pointer-events-none">
+                                {dayDeadlines.map((item) => (
+                                  <div
+                                    key={item.id}
+                                    className={`w-1.5 h-1.5 rounded-full ${isOverdue ? 'bg-red-500' : isToday ? 'bg-orange-500' : 'bg-amber-400'}`}
+                                  />
+                                ))}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -893,15 +950,19 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                     <div className="flex shrink-0">
                       {allWeeks.map((week) => {
                         const weekISO = format(week, 'yyyy-MM-dd');
+                        const weekEndISO = format(addDays(week, 7), 'yyyy-MM-dd');
                         const mins = logTotals.byWeek[task.id]?.[weekISO] || 0;
                         const fill = Math.min(mins / (5 * 8 * 60), 1);
+                        const weekDeadlines = deadlineItems.filter((i) => i.taskId === task.id && i.deadline! >= weekISO && i.deadline! < weekEndISO);
+                        const hasOverdue = weekDeadlines.some((i) => i.deadline! < todayISO);
+                        const hasToday = weekDeadlines.some((i) => i.deadline! === todayISO);
                         return (
                           <div
                             key={weekISO}
                             className="relative shrink-0 border-r border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 cursor-pointer"
                             style={{ width: WEEK_VIEW_COL_W, height: ROW_HEIGHT }}
                             onClick={() => { setCurrentDate(weekISO); setViewMode('day'); }}
-                            title={`${task.title} · W${format(week, 'w')}: ${Math.round(mins / 60 * 10) / 10}h`}
+                            title={`${task.title} · W${format(week, 'w')}: ${Math.round(mins / 60 * 10) / 10}h${weekDeadlines.length > 0 ? '\n⚑ ' + weekDeadlines.map((i) => i.text).join('\n⚑ ') : ''}`}
                           >
                             {mins > 0 && (
                               <div
@@ -920,6 +981,9 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                               >
                                 {Math.round(mins / 60)}h
                               </span>
+                            )}
+                            {weekDeadlines.length > 0 && (
+                              <div className={`absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full pointer-events-none ${hasOverdue ? 'bg-red-500' : hasToday ? 'bg-orange-500' : 'bg-amber-400'}`} />
                             )}
                           </div>
                         );
@@ -935,13 +999,16 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                         const mins = logTotals.byMonth[task.id]?.[monthKey] || 0;
                         const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
                         const fill = Math.min(mins / (daysInMonth * 8 * 60 * 0.7), 1);
+                        const monthDeadlines = deadlineItems.filter((i) => i.taskId === task.id && i.deadline!.startsWith(monthKey));
+                        const hasOverdue = monthDeadlines.some((i) => i.deadline! < todayISO);
+                        const hasToday = monthDeadlines.some((i) => i.deadline! === todayISO);
                         return (
                           <div
                             key={monthKey}
                             className="relative shrink-0 border-r border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 cursor-pointer"
                             style={{ width: MONTH_VIEW_COL_W, height: ROW_HEIGHT }}
                             onClick={() => { setCurrentDate(format(month, 'yyyy-MM-dd')); setViewMode('week'); }}
-                            title={`${task.title} · ${format(month, 'MMM yyyy')}: ${Math.round(mins / 60 * 10) / 10}h`}
+                            title={`${task.title} · ${format(month, 'MMM yyyy')}: ${Math.round(mins / 60 * 10) / 10}h${monthDeadlines.length > 0 ? '\n⚑ ' + monthDeadlines.map((i) => i.text).join('\n⚑ ') : ''}`}
                           >
                             {mins > 0 && (
                               <div
@@ -960,6 +1027,9 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
                               >
                                 {Math.round(mins / 60)}h
                               </span>
+                            )}
+                            {monthDeadlines.length > 0 && (
+                              <div className={`absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full pointer-events-none ${hasOverdue ? 'bg-red-500' : hasToday ? 'bg-orange-500' : 'bg-amber-400'}`} />
                             )}
                           </div>
                         );
@@ -979,7 +1049,7 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
               return (
                 <div
                   className="flex items-center gap-2 px-3 rounded shadow-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-200 select-none"
-                  style={{ width: SIDEBAR_WIDTH, height: ROW_HEIGHT, opacity: 0.92 }}
+                  style={{ width: sidebarWidth, height: ROW_HEIGHT, opacity: 0.92 }}
                 >
                   <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-6 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-6 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
@@ -994,7 +1064,7 @@ export const TimelineGrid: React.FC<TimelineGridProps> = ({
 
         {/* Now line (hour view only) */}
         {viewMode === 'hour' && (
-          <NowLine slotDuration={slotDuration} currentDate={currentDate} offsetLeft={SIDEBAR_WIDTH} />
+          <NowLine slotDuration={slotDuration} currentDate={currentDate} offsetLeft={sidebarWidth} />
         )}
       </div>
 

@@ -8,6 +8,7 @@ import { WeeklyReportModal } from './components/modals/WeeklyReportModal';
 import { useSettingsStore } from './store/settingsStore';
 import { useTaskStore } from './store/taskStore';
 import { useTimeLogStore } from './store/timeLogStore';
+import { useChecklistStore } from './store/checklistStore';
 import { slotIndexToDate } from './utils/timeUtils';
 import type { Task, TimeLog } from './types';
 
@@ -19,13 +20,15 @@ export default function App() {
   const logLoading = useTimeLogStore((s) => s.loading);
   const initTasks = useTaskStore((s) => s.init);
   const initLogs = useTimeLogStore((s) => s.init);
+  const initChecklist = useChecklistStore((s) => s.init);
   const addLog = useTimeLogStore((s) => s.addLog);
 
   // ── Load data from Supabase on mount ──────────────────────────────────────
   useEffect(() => {
     initTasks();
     initLogs();
-  }, [initTasks, initLogs]);
+    initChecklist();
+  }, [initTasks, initLogs, initChecklist]);
 
   // ── Task modal state ──────────────────────────────────────────────────────
   const [taskModalOpen, setTaskModalOpen] = useState(false);

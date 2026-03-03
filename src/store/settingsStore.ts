@@ -9,6 +9,7 @@ const DEFAULTS: Settings = {
   viewMode: 'hour',
   currentDate: format(new Date(), 'yyyy-MM-dd'),
   darkMode: false,
+  sidebarWidth: 280,
 };
 
 function loadFromStorage(): Settings {
@@ -43,6 +44,7 @@ interface SettingsState extends Settings {
   setCurrentDate: (date: string) => void;
   goToToday: () => void;
   toggleDarkMode: () => void;
+  setSidebarWidth: (w: number) => void;
   /** Increments every time goToToday() is called so scroll effects re-run even if currentDate didn't change */
   todayScrollTrigger: number;
 }
@@ -77,4 +79,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       saveToStorage(n);
       return n;
     }),
+
+  setSidebarWidth: (sidebarWidth) =>
+    set((s) => { const n = { ...s, sidebarWidth }; saveToStorage(n); return n; }),
 }));

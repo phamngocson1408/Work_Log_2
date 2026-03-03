@@ -28,6 +28,7 @@ export interface Settings {
   viewMode: ViewMode;
   currentDate: string; // ISO date string YYYY-MM-DD
   darkMode: boolean;
+  sidebarWidth: number;
 }
 
 // Derived/computed types used in rendering
@@ -40,4 +41,13 @@ export interface SlotInfo {
 export interface LogConflict {
   existingLog: TimeLog;
   action: 'merge' | 'overwrite' | 'cancel';
+}
+
+export interface ChecklistItem {
+  id: string;
+  taskId: string;
+  text: string;
+  done: boolean;
+  orderIndex: number;
+  deadline: string | null; // ISO date YYYY-MM-DD
 }
