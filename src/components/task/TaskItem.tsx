@@ -108,7 +108,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           className={`flex-shrink-0 text-xs px-1 py-0.5 rounded font-medium leading-none ${
             checklistDone === checklistTotal
               ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-              : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
+              : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
           }`}
           title={`Checklist: ${checklistDone}/${checklistTotal} done`}
         >
