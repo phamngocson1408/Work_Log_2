@@ -3,6 +3,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from '@tiptap/extension-image';
+import Link from '@tiptap/extension-link';
 import { uploadImage } from '../../lib/uploadImage';
 
 interface RichTextEditorProps {
@@ -41,12 +42,19 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const fromEditorRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
 
   const editor = useEditor({
     extensions: [
       StarterKit,
       Placeholder.configure({ placeholder }),
       Image.configure({ inline: false, allowBase64: true }),
+      Link.configure({
+        autolink: true,
+        openOnClick: false,
+        HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' },
+      }),
     ],
     content: value,
     onUpdate: ({ editor }) => {
@@ -131,10 +139,29 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     [editor]
   );
 
+  const openLinkDialog = useCallback(() => {
+    if (!editor) return;
+    const existing = editor.getAttributes('link').href as string | undefined;
+    setLinkUrl(existing ?? '');
+    setLinkDialogOpen(true);
+  }, [editor]);
+
+  const applyLink = useCallback(() => {
+    if (!editor) return;
+    const url = linkUrl.trim();
+    if (!url) {
+      editor.chain().focus().unsetLink().run();
+    } else {
+      const href = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+      editor.chain().focus().setLink({ href, target: '_blank' }).run();
+    }
+    setLinkDialogOpen(false);
+    setLinkUrl('');
+  }, [editor, linkUrl]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) insertImageFromFile(file);
-    // Reset so the same file can be re-selected
     e.target.value = '';
   };
 
@@ -202,6 +229,20 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
         <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1" />
 
+        {/* Link button */}
+        <ToolbarButton
+          onClick={openLinkDialog}
+          active={editor.isActive('link')}
+          title="Insert / edit link"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+          </svg>
+        </ToolbarButton>
+
+        <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1" />
+
         {/* Image upload button */}
         <ToolbarButton
           onClick={() => fileInputRef.current?.click()}
@@ -227,6 +268,38 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           onChange={handleFileChange}
         />
       </div>
+
+      {/* Link dialog */}
+      {linkDialogOpen && (
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/60">
+          <input
+            autoFocus
+            type="url"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); applyLink(); }
+              if (e.key === 'Escape') { setLinkDialogOpen(false); }
+            }}
+            placeholder="https://example.com"
+            className="flex-1 text-xs px-2 py-1 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+          <button
+            type="button"
+            onClick={applyLink}
+            className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+          >
+            {linkUrl.trim() ? 'Apply' : 'Remove'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setLinkDialogOpen(false)}
+            className="text-xs px-2 py-1 rounded border border-slate-200 dark:border-slate-600 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       {/* Editor */}
       <EditorContent

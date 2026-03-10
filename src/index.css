@@ -126,6 +126,12 @@
   outline-offset: 2px;
 }
 
+/* Links */
+.rich-editor a { color: #3b82f6; text-decoration: underline; cursor: pointer; }
+.rich-editor a:hover { color: #2563eb; }
+.dark .rich-editor a { color: #60a5fa; }
+.dark .rich-editor a:hover { color: #93c5fd; }
+
 /* Placeholder */
 .rich-editor p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
@@ -157,6 +163,8 @@
   margin: 0.2em 0;
   opacity: 0.8;
 }
+.rich-content a { color: #60a5fa; text-decoration: underline; }
+.rich-content a:hover { color: #93c5fd; }
 .rich-content img {
   max-width: 100%;
   height: auto;

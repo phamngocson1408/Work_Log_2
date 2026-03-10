@@ -160,9 +160,9 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg">
+      <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex-shrink-0">
           <div className="flex items-center gap-2">
             {selectedTask && (
               <span
@@ -186,7 +186,7 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
 
         {/* Conflict dialogue */}
         {isConflictDialogue ? (
-          <div className="p-6 space-y-4">
+          <div className="p-6 space-y-4 overflow-y-auto flex-1">
             <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/30 rounded-lg border border-amber-200 dark:border-amber-700">
               <svg className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.996-.833-2.732 0L3.068 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -224,7 +224,7 @@ export const LogModal: React.FC<LogModalProps> = ({ config, onClose }) => {
           </div>
         ) : (
           /* Normal form */
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
             {/* Task selector (create mode only) */}
             {!isEditing && (
               <div>
